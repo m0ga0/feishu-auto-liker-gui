@@ -1,0 +1,11 @@
+config.yaml
+feishu_browser_data/
+*.log
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+build/
+dist/
+*.spec
