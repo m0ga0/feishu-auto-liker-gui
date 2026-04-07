@@ -1,0 +1,41 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:  # Allow manual trigger
+  push:
+    tags:
+      - 'v*'          # Trigger on version tags
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+        # Install Playwright and browser
+        python -m playwright install chromium
+        python -m playwright install-deps chromium
+
+    - name: Build with PyInstaller
+      run: |
+        chmod +x build_mac.sh
+        ./build_mac.sh
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: FeishuAutoLiker-macOS
+        path: dist/飞书自动点赞助手.app
+        retention-days: 90
