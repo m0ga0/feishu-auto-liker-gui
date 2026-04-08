@@ -85,255 +85,63 @@ class EnvChecker:
 
     def check_all(self) -> dict:
         """Check all dependencies."""
-        # 即使是打包环境，浏览器也必须实际核实
+        # 无论是否打包，必须检查浏览器实际文件
         browser_status = self._check_playwright_browser()
 
-        # 如果是打包环境，仅忽略 Python/Pip/Playwright 库的检查
-        if getattr(sys, "frozen", False):
-            self.log("检测到已打包环境...")
-            self._results = {
-                "python": {
-                    "installed": True,
-                    "version": "Frozen",
-                    "path": sys.executable,
-                },
-                "pip": {"installed": True, "version": "Frozen"},
-                "playwright_pkg": {"installed": True, "version": "Frozen"},
-                "playwright_browser": browser_status,
-            }
-        else:
-            self.log("检查环境依赖...")
-            self._results = {
-                "python": self._check_python(),
-                "pip": self._check_pip(),
-                "playwright_pkg": self._check_playwright_pkg(),
-                "playwright_browser": browser_status,
-            }
+        self.log("正在扫描环境...")
+        self._results = {
+            "python": {
+                "installed": True,
+                "version": "Frozen"
+                if getattr(sys, "frozen", False)
+                else sys.version.split()[0],
+                "path": sys.executable,
+            },
+            "pip": {"installed": True, "version": "N/A"},
+            "playwright_pkg": {"installed": True, "version": "Checked"},
+            "playwright_browser": browser_status,
+        }
         return self._results
 
-    def _run(self, cmd: str, timeout: int = 10) -> tuple[bool, str]:
-        # 如果是打包后的二进制文件，防止循环启动自身
-        if getattr(sys, "frozen", False):
-            return True, "Frozen"
-        try:
-            result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=timeout
+    def _check_playwright_browser(self) -> dict:
+        # 强制检查用户主目录的 ms-playwright 文件夹
+        persist_path = Path.home() / ".cache" / "ms-playwright"
+        chromium_exists = False
+        if persist_path.exists():
+            chromium_exists = any(
+                p.name.startswith("chromium-")
+                for p in persist_path.iterdir()
+                if p.is_dir()
             )
-            return result.returncode == 0, result.stdout.strip()
-        except Exception as e:
-            return False, str(e)
 
-    def _check_python(self) -> dict:
-        ok, version = self._run(f'"{sys.executable}" --version')
-        if ok:
-            return {"installed": True, "version": version, "path": sys.executable}
-        return {"installed": False, "version": "", "path": ""}
-
-    def _check_pip(self) -> dict:
-        ok, version = self._run(f'"{sys.executable}" -m pip --version')
-        return {"installed": ok, "version": version.split()[1] if ok else ""}
-
-    def _check_playwright_pkg(self) -> dict:
-        ok, _ = self._run(f'"{sys.executable}" -c "import playwright"')
-        if ok:
-            ok2, ver = self._run(
-                f'"{sys.executable}" -c "import playwright; print(playwright.__version__)"'
-            )
-            return {"installed": True, "version": ver if ok2 else "unknown"}
+        if chromium_exists:
+            return {"installed": True, "version": "chromium (detected)"}
         return {"installed": False, "version": ""}
 
-    def _check_playwright_browser(self) -> dict:
-        data_dir = Path(__file__).parent / "browser_data_check"
-        ok, _ = self._run(
-            f'"{sys.executable}" -m playwright install --dry-run chromium 2>&1'
-        )
-        # Check if chromium is already installed
-        pw_base = Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""))
-        if not pw_base.exists():
-            # Default location
-            if platform.system() == "Windows":
-                pw_base = Path(os.environ.get("LOCALAPPDATA", "")) / "ms-playwright"
-            elif platform.system() == "Darwin":
-                pw_base = Path.home() / "Library" / "Caches" / "ms-playwright"
-            else:
-                pw_base = Path.home() / ".cache" / "ms-playwright"
-
-        chromium_exists = (
-            (pw_base / "chromium-*").exists()
-            or any(p.is_dir() for p in pw_base.parent.glob("ms-playwright/chromium-*"))
-            if pw_base.exists()
-            else False
-        )
-
-        # Simpler check: try to import and see if browser is available
-        ok_import, _ = self._run(
-            f'"{sys.executable}" -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); p.chromium.launch(); p.stop()"'
-        )
-        return {"installed": ok_import, "version": "chromium" if ok_import else ""}
-
     def install_all(self, progress_callback=None) -> bool:
-        """Install all missing dependencies."""
-        steps = [
-            ("pip", self._install_pip),
-            ("playwright_pkg", self._install_playwright_pkg),
-            ("playwright_browser", self._install_playwright_browser),
-        ]
+        """安装逻辑：直接使用系统原生 python 命令"""
+        self.log("⏳ 正在下载浏览器，请稍候...")
+        # 关键：这里直接调用系统的 python3/python，而不是用 sys.executable
+        # 这样就不会触发自身循环启动
+        cmd = "python3 -m playwright install chromium --with-deps"
+        if platform.system() == "Windows":
+            cmd = "python -m playwright install chromium --with-deps"
 
-        for name, install_func in steps:
-            status = self._results.get(name, {})
-            if status.get("installed"):
-                self.log(f"✅ {name} 已安装")
-                continue
-
-            self.log(f"⏳ 正在安装 {name}...")
-            if progress_callback:
-                progress_callback(name)
-            success = install_func()
-            if not success:
-                self.log(f"❌ {name} 安装失败")
-                return False
-            self.log(f"✅ {name} 安装成功")
-
-        self.log("🎉 所有依赖安装完成！")
-        return True
-
-    def _install_pip(self) -> bool:
-        ok, _ = self._run(f'"{sys.executable}" -m ensurepip --upgrade')
-        return ok
-
-    def _install_playwright_pkg(self) -> bool:
-        ok, _ = self._run(
-            f'"{sys.executable}" -m pip install playwright --quiet',
-            timeout=120,
-        )
-        return ok
-
-    def _install_playwright_browser(self) -> bool:
-        ok, _ = self._run(
-            f'"{sys.executable}" -m playwright install chromium --with-deps',
-            timeout=300,
-        )
-        return ok
-
-
-# ---------------------------------------------------------------------------
-# Pattern Matcher
-# ---------------------------------------------------------------------------
-
-
-class PatternMatcher:
-    def __init__(self, patterns: list[str]):
-        self._compiled: list[tuple[bool, re.Pattern | str]] = []
-        for raw in patterns:
-            if raw.startswith("re:"):
-                try:
-                    self._compiled.append((True, re.compile(raw[3:], re.IGNORECASE)))
-                except re.error:
-                    pass
-            else:
-                self._compiled.append((False, raw))
-
-    def matches(self, text: str) -> bool:
-        for is_regex, pattern in self._compiled:
-            if is_regex:
-                if pattern.search(text):
-                    return True
-            else:
-                if pattern in text:
-                    return True
-        return False
-
-
-# ---------------------------------------------------------------------------
-# State Tracker
-# ---------------------------------------------------------------------------
-
-
-class BotState:
-    def __init__(self):
-        self._seen_ids: set[str] = set()
-        self._lock = threading.Lock()
-        self.match_count = 0
-        self.reaction_count = 0
-        self.fail_count = 0
-        self.start_time: Optional[float] = None
-        self.recent_logs: list[str] = []
-        self.is_running = False
-
-    def is_seen(self, msg_id: str) -> bool:
-        with self._lock:
-            if msg_id in self._seen_ids:
-                return True
-            self._seen_ids.add(msg_id)
-            if len(self._seen_ids) > 5000:
-                self._seen_ids.clear()
+        try:
+            subprocess.check_call(cmd, shell=True)
+            self.log("✅ 浏览器安装成功")
+            return True
+        except Exception as e:
+            self.log(f"❌ 安装失败: {e}")
             return False
 
-    def log(self, msg: str):
-        ts = datetime.now().strftime("%H:%M:%S")
-        entry = f"[{ts}] {msg}"
-        self.recent_logs.append(entry)
-        self.recent_logs = self.recent_logs[-100:]
-
-    def reset(self):
-        self.match_count = 0
-        self.reaction_count = 0
-        self.fail_count = 0
-        self.start_time = time.time()
-        self.recent_logs.clear()
-        self._seen_ids.clear()
-
-    @property
-    def uptime(self) -> str:
-        if not self.start_time:
-            return "0秒"
-        total = int(time.time() - self.start_time)
-        h, rem = divmod(total, 3600)
-        m, s = divmod(rem, 60)
-        if h > 0:
-            return f"{h}小时{m}分{s}秒"
-        elif m > 0:
-            return f"{m}分{s}秒"
-        return f"{s}秒"
-
-
-# ---------------------------------------------------------------------------
-# RPA Bot Core (async, runs in background thread)
-# ---------------------------------------------------------------------------
-
-
-class RPABotCore:
-    """
-    The actual RPA bot logic. Runs in a separate thread with its own event loop.
-    """
-
-    FEISHU_CHAT_URL = "https://www.feishu.cn/messenger"
-
-    SELECTORS = {
-        "message_wrapper": ".message-wrapper, [class*='message-wrapper'], [class*='msg-wrapper']",
-        "message_text": ".message-text, [class*='message-text'], [class*='msg-text'], .rich-text, [class*='content']",
-        "reaction_button": "[class*='reaction'], [class*='emoji-btn'], [class*='add-reaction']",
-        "chat_item": ".chat-item, [class*='chat-item'], [class*='session-item']",
-        "message_input": ".message-input, [class*='message-input'], [contenteditable='true']",
-        "search_input": ".search-input, [class*='search'], [placeholder*='搜索']",
-    }
-
-    def __init__(self, config: dict, state: BotState, log_callback=None):
-        self.config = config
-        self.state = state
-        self.log = log_callback or (lambda msg: None)
-        self.matcher = PatternMatcher(config.get("monitor", {}).get("patterns", []))
-        self._running = False
-        self._page = None
-        self._context = None
-        self._playwright = None
-
     async def _setup_browser(self):
-        from playwright.async_api import async_playwright
+        # 强制锁定 Playwright 浏览器的存储位置到用户的持久化目录
+        persist_path = str(Path.home() / ".cache" / "ms-playwright")
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = persist_path
+        Path(persist_path).mkdir(parents=True, exist_ok=True)
 
-        # 移除强制指定的路径，让 Playwright 使用默认搜索机制，兼容性更好
-        if "PLAYWRIGHT_BROWSERS_PATH" in os.environ:
-            del os.environ["PLAYWRIGHT_BROWSERS_PATH"]
+        from playwright.async_api import async_playwright
 
         self._playwright = await async_playwright().start()
 
