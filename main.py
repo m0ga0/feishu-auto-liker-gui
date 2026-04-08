@@ -84,7 +84,20 @@ class EnvChecker:
         self._results = {}
 
     def check_all(self) -> dict:
-        """Check all dependencies. Returns {name: {installed: bool, version: str}}."""
+        """Check all dependencies."""
+        if getattr(sys, "frozen", False):
+            self.log("检测到已打包环境，跳过依赖检查。")
+            return {
+                "python": {
+                    "installed": True,
+                    "version": "Frozen",
+                    "path": sys.executable,
+                },
+                "pip": {"installed": True, "version": "Frozen"},
+                "playwright_pkg": {"installed": True, "version": "Frozen"},
+                "playwright_browser": {"installed": True, "version": "Frozen"},
+            }
+
         self.log("检查环境依赖...")
         self._results = {
             "python": self._check_python(),
@@ -95,6 +108,9 @@ class EnvChecker:
         return self._results
 
     def _run(self, cmd: str, timeout: int = 10) -> tuple[bool, str]:
+        # 如果是打包后的二进制文件，防止循环启动自身
+        if getattr(sys, "frozen", False):
+            return True, "Frozen"
         try:
             result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, timeout=timeout
