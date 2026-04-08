@@ -23,11 +23,9 @@ def main():
         "飞书自动点赞助手",
         "--onefile",
         "--windowed",  # No console window
-        "--icon",
-        "NONE",  # Add an icon path here if you have one
-        "--hidden-import",
+        "--collect-all",
         "customtkinter",
-        "--hidden-import",
+        "--collect-all",
         "playwright",
         "--hidden-import",
         "yaml",
