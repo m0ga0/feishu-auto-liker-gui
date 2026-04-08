@@ -320,7 +320,7 @@ class RPABotCore:
     SELECTORS = {
         "message_wrapper": "[data-element='message-section-left'], [data-element='message-section-right'], .message-section-left, .message-section-right",
         "message_text": ".message-text .text-only, .richTextContainer .text-only, .text-only",
-        "reaction_button": "[class*='reaction'], [class*='emoji-btn'], [class*='add-reaction']",
+        "reaction_button": ".messageAction__toolbar .toolbar-item.praise",
         "chat_item": ".chat-item, [class*='chat-item'], [class*='session-item']",
         "message_input": ".message-input, [class*='message-input'], [contenteditable='true']",
         "search_input": ".search-input, [class*='search'], [placeholder*='搜索']",
@@ -443,46 +443,48 @@ class RPABotCore:
 
     async def _react(self, message_element) -> bool:
         try:
+            # 1. 触发 Hover
             await message_element.hover()
-            await self._delay(0.2, 0.5)
+            # 增加一个微小的延迟，给飞书渲染工具栏的时间
+            await self._delay(0.3, 0.5)
 
-            emoji = self.config.get("monitor", {}).get("reaction_emoji", "赞")
-            delay_min = self.config.get("anti_detect", {}).get(
-                "reaction_delay_min", 0.3
-            )
-            delay_max = self.config.get("anti_detect", {}).get(
-                "reaction_delay_max", 1.5
-            )
+            # 2. 在消息容器内部进行“相对查找”
+            # 使用 wait_for_selector 限制范围在 message_element 内部
+            try:
+                toolbar = await message_element.wait_for_selector(
+                    ".messageAction__toolbar", timeout=1000
+                )
+            except:
+                self.log("未在消息容器内找到工具栏")
+                return False
 
-            # Try to find and click reaction button
-            reaction_btn = await message_element.query_selector(
-                self.SELECTORS["reaction_button"]
-            )
+            # 3. 在工具栏内找点赞按钮
+            reaction_btn = await toolbar.query_selector(".toolbar-item.praise")
             if reaction_btn:
                 await reaction_btn.click()
-                await self._delay(delay_min, delay_max)
+                await self._delay(0.5, 1.0)
+                return True
 
-                # Try to find the specific emoji
-                emoji_selector = f"[title='{emoji}'], [data-emoji='{emoji}']"
-                emoji_btn = await self._page.query_selector(emoji_selector)
-                if emoji_btn:
-                    await emoji_btn.click()
-                    await self._delay()
-                    return True
-
-                # Fallback: search all emoji items
-                all_emojis = await self._page.query_selector_all(
-                    ".emoji-item, [class*='emoji']"
-                )
-                for e in all_emojis:
-                    title = await e.get_attribute("title")
-                    if title and emoji in title:
-                        await e.click()
-                        await self._delay()
-                        return True
-
+            self.log("未在工具栏中找到点赞按钮")
             return False
-        except Exception:
+        except Exception as e:
+            self.log(f"点赞操作异常: {e}")
+            return False
+
+            # 4. 点击点赞按钮
+            reaction_btn = await toolbar.query_selector(".toolbar-item.praise")
+            if reaction_btn:
+                await reaction_btn.click()
+                await self._delay(0.5, 1.0)
+                return True
+
+            self.log("未找到点赞按钮")
+            return False
+        except Exception as e:
+            self.log(f"点赞操作异常: {e}")
+            return False
+        except Exception as e:
+            self.log(f"点赞失败: {e}")
             return False
 
     async def _delay(self, min_s: float = None, max_s: float = None):
