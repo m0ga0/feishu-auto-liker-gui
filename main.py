@@ -85,9 +85,13 @@ class EnvChecker:
 
     def check_all(self) -> dict:
         """Check all dependencies."""
+        # 即使是打包环境，浏览器也必须实际核实
+        browser_status = self._check_playwright_browser()
+
+        # 如果是打包环境，仅忽略 Python/Pip/Playwright 库的检查
         if getattr(sys, "frozen", False):
-            self.log("检测到已打包环境，跳过依赖检查。")
-            return {
+            self.log("检测到已打包环境...")
+            self._results = {
                 "python": {
                     "installed": True,
                     "version": "Frozen",
@@ -95,16 +99,16 @@ class EnvChecker:
                 },
                 "pip": {"installed": True, "version": "Frozen"},
                 "playwright_pkg": {"installed": True, "version": "Frozen"},
-                "playwright_browser": {"installed": True, "version": "Frozen"},
+                "playwright_browser": browser_status,
             }
-
-        self.log("检查环境依赖...")
-        self._results = {
-            "python": self._check_python(),
-            "pip": self._check_pip(),
-            "playwright_pkg": self._check_playwright_pkg(),
-            "playwright_browser": self._check_playwright_browser(),
-        }
+        else:
+            self.log("检查环境依赖...")
+            self._results = {
+                "python": self._check_python(),
+                "pip": self._check_pip(),
+                "playwright_pkg": self._check_playwright_pkg(),
+                "playwright_browser": browser_status,
+            }
         return self._results
 
     def _run(self, cmd: str, timeout: int = 10) -> tuple[bool, str]:
@@ -327,10 +331,9 @@ class RPABotCore:
     async def _setup_browser(self):
         from playwright.async_api import async_playwright
 
-        # 修复 PyInstaller 临时目录导致找不到浏览器的问题
-        # 强制指定浏览器下载/查找路径到用户主目录
-        browser_path = str(Path.home() / ".cache" / "ms-playwright")
-        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browser_path
+        # 移除强制指定的路径，让 Playwright 使用默认搜索机制，兼容性更好
+        if "PLAYWRIGHT_BROWSERS_PATH" in os.environ:
+            del os.environ["PLAYWRIGHT_BROWSERS_PATH"]
 
         self._playwright = await async_playwright().start()
 
