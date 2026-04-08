@@ -30,7 +30,7 @@ CONFIG_PATH = Path("config.yaml")
 
 DEFAULT_CONFIG = {
     "monitor": {
-        "patterns": ["打卡", "签到"],
+        "patterns": ["re:.*(出|整出).*(车位|停车位|首赞).*"],
         "reaction_emoji": "赞",
         "monitored_groups": [],
         "check_interval": 2,
@@ -318,8 +318,8 @@ class RPABotCore:
     FEISHU_CHAT_URL = "https://www.feishu.cn/messenger"
 
     SELECTORS = {
-        "message_wrapper": ".message-wrapper, [class*='message-wrapper'], [class*='msg-wrapper']",
-        "message_text": ".message-text, [class*='message-text'], [class*='msg-text'], .rich-text, [class*='content']",
+        "message_wrapper": "[data-element='message-section-left'], [data-element='message-section-right'], .message-section-left, .message-section-right",
+        "message_text": ".message-text .text-only, .richTextContainer .text-only, .text-only",
         "reaction_button": "[class*='reaction'], [class*='emoji-btn'], [class*='add-reaction']",
         "chat_item": ".chat-item, [class*='chat-item'], [class*='session-item']",
         "message_input": ".message-input, [class*='message-input'], [contenteditable='true']",
@@ -413,6 +413,9 @@ class RPABotCore:
                 self.SELECTORS["message_wrapper"]
             )
             if not wrappers:
+                self.log(
+                    f"没有定位到消息渲染单元{self.SELECTORS['message_wrapper']}，继续监测。"
+                )
                 return messages
 
             for wrapper in wrappers[-max_msgs:]:
@@ -421,16 +424,20 @@ class RPABotCore:
                         self.SELECTORS["message_text"]
                     )
                     if not text_el:
+                        self.log(
+                            f"没有定位到消息文本{self.SELECTORS['message_text']}，跳过"
+                        )
                         continue
                     text = (await text_el.inner_text()).strip()
                     if not text:
+                        self.log(f"消息字符串为空")
                         continue
                     msg_id = f"{hash(text)}_{int(time.time() / 60)}"
                     messages.append({"id": msg_id, "text": text, "element": wrapper})
-                except Exception:
-                    continue
-        except Exception:
-            pass
+                except Exception as e:
+                    self.log(f"异常：{str(e)}")
+        except Exception as e:
+            self.log(f"异常：{str(e)}")
 
         return messages
 
@@ -522,6 +529,8 @@ class RPABotCore:
                             self.log("❌ 点赞失败")
 
                         await self._delay()
+                    else:
+                        self.log(f"消息{msg['text'][:80]}没有匹配")
 
                 await asyncio.sleep(check_interval)
 
