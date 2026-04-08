@@ -1,10 +1,7 @@
 # 🤖 飞书自动点赞助手（GUI 桌面版）
+[![Build Linux App](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml/badge.svg?branch=master&event=workflow_dispatch)](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml)
 
 > 一个**零代码、零命令行**的桌面软件。双击打开即可使用，自带一键安装环境功能。
-
----
-
-[![Build Linux App](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml/badge.svg?branch=master&event=workflow_dispatch)](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml)
 
 ---
 
