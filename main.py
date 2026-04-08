@@ -222,8 +222,9 @@ class EnvChecker:
 
 
 class PatternMatcher:
-    def __init__(self, patterns: list[str]):
+    def __init__(self, patterns: list[str], log_callback=None):
         self._compiled: list[tuple[bool, re.Pattern | str]] = []
+        self.log = log_callback or (lambda msg: None)
         for raw in patterns:
             if raw.startswith("re:"):
                 try:
@@ -234,13 +235,20 @@ class PatternMatcher:
                 self._compiled.append((False, raw))
 
     def matches(self, text: str) -> bool:
+        self.log(f"🔍 正在检查消息: '{text[:20]}...'")
         for is_regex, pattern in self._compiled:
+            is_match = False
             if is_regex:
                 if pattern.search(text):
-                    return True
+                    is_match = True
             else:
                 if pattern in text:
-                    return True
+                    is_match = True
+
+            p_str = pattern.pattern if is_regex else pattern
+            self.log(f"   > 规则 '{p_str}': {'✅ 符合' if is_match else '❌ 不符'}")
+            if is_match:
+                return True
         return False
 
 
@@ -322,7 +330,9 @@ class RPABotCore:
         self.config = config
         self.state = state
         self.log = log_callback or (lambda msg: None)
-        self.matcher = PatternMatcher(config.get("monitor", {}).get("patterns", []))
+        self.matcher = PatternMatcher(
+            config.get("monitor", {}).get("patterns", []), log_callback=self.log
+        )
         self._running = False
         self._page = None
         self._context = None
