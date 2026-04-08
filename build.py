@@ -22,19 +22,17 @@ def main():
         "--name",
         "飞书自动点赞助手",
         "--onefile",
-        "--windowed",  # No console window
-        "--icon",
-        "NONE",  # Add an icon path here if you have one
-        "--hidden-import",
+        "--windowed",
+        "--collect-all",
         "customtkinter",
-        "--hidden-import",
+        "--collect-all",
         "playwright",
         "--hidden-import",
         "yaml",
         "--hidden-import",
         "loguru",
         "--add-data",
-        "config.example.yaml:.",  # Include example config
+        "config.example.yaml:.",
         "main.py",
     ]
 

@@ -249,7 +249,7 @@ class PatternMatcher:
 # ---------------------------------------------------------------------------
 
 
-class BotState:
+class _BotState:
     def __init__(self):
         self._seen_ids: set[str] = set()
         self._lock = threading.Lock()
@@ -318,7 +318,7 @@ class RPABotCore:
         "search_input": ".search-input, [class*='search'], [placeholder*='搜索']",
     }
 
-    def __init__(self, config: dict, state: BotState, log_callback=None):
+    def __init__(self, config: dict, state: _BotState, log_callback=None):
         self.config = config
         self.state = state
         self.log = log_callback or (lambda msg: None)
@@ -565,7 +565,7 @@ class App(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.config_data = load_config()
-        self.state = BotState()
+        self.state = _BotState()
         self.bot: Optional[RPABotCore] = None
 
         self._build_ui()
