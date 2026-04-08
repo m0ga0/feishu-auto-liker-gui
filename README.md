@@ -4,6 +4,10 @@
 
 ---
 
+[![Build Linux App](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml/badge.svg?branch=master&event=workflow_dispatch)](https://github.com/m0ga0/feishu-auto-liker-gui/actions/workflows/build-linux.yml)
+
+---
+
 ## ⚠️ 重要声明
 
 1. **本工具仅供学习研究使用**，请勿用于违反飞书用户协议的场景。
