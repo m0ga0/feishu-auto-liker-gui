@@ -329,11 +329,15 @@ class RPABotCore:
         self._playwright = None
 
     async def _setup_browser(self):
-        from playwright.async_api import async_playwright
+        # 1. 极早设置路径，必须在 import 前
+        persist_path = str(Path.home() / ".cache" / "ms-playwright")
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = persist_path
 
-        # 移除强制指定的路径，让 Playwright 使用默认搜索机制，兼容性更好
-        if "PLAYWRIGHT_BROWSERS_PATH" in os.environ:
-            del os.environ["PLAYWRIGHT_BROWSERS_PATH"]
+        # 2. 确保目录一定存在
+        Path(persist_path).mkdir(parents=True, exist_ok=True)
+
+        # 3. 延迟 import，确保设置已生效
+        from playwright.async_api import async_playwright
 
         self._playwright = await async_playwright().start()
 
