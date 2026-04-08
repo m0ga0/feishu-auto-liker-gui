@@ -327,6 +327,11 @@ class RPABotCore:
     async def _setup_browser(self):
         from playwright.async_api import async_playwright
 
+        # 修复 PyInstaller 临时目录导致找不到浏览器的问题
+        # 强制指定浏览器下载/查找路径到用户主目录
+        browser_path = str(Path.home() / ".cache" / "ms-playwright")
+        os.environ["PLAYWRIGHT_BROWSERS_PATH"] = browser_path
+
         self._playwright = await async_playwright().start()
 
         user_data_dir = self.config.get("browser", {}).get(
