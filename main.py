@@ -467,6 +467,7 @@ class RPABotCore:
     async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
+        current_time = datetime.now().strftime("%H:%M:%S")
 
         try:
             wrappers = await self._page.query_selector_all(
@@ -480,19 +481,20 @@ class RPABotCore:
 
             for wrapper in wrappers[-max_msgs:]:
                 try:
+                    wrapper_class = await wrapper.get_attribute("class") or ""
+                    if "message-section" not in wrapper_class:
+                        continue
+
                     text_el = await wrapper.query_selector(
                         self.SELECTORS["message_text"]
                     )
                     if not text_el:
-                        self.log(
-                            f"没有定位到消息文本{self.SELECTORS['message_text']}，跳过"
-                        )
                         continue
                     text = (await text_el.inner_text()).strip()
                     if not text:
-                        self.log(f"消息字符串为空")
                         continue
                     msg_id = await self._extract_message_id(wrapper, text)
+                    self.log(f"[{current_time}] 抓取消息 ID={msg_id}...")
                     messages.append(
                         {
                             "id": msg_id,
@@ -1027,6 +1029,7 @@ class App(ctk.CTk):
         w.insert("end", f"{msg}\n")
         w.see("end")
         w.configure(state="disabled")
+        logger.info(msg)
 
     def _auto_check_env(self):
         checker = EnvChecker(
