@@ -260,6 +260,7 @@ class PatternMatcher:
 class _BotState:
     def __init__(self):
         self._seen_ids: set[str] = set()
+        self._group_states: dict[str, dict] = {}
         self._lock = threading.Lock()
         self.match_count = 0
         self.reaction_count = 0
@@ -267,15 +268,67 @@ class _BotState:
         self.start_time: Optional[float] = None
         self.recent_logs: list[str] = []
         self.is_running = False
+        self._load_state()
 
-    def is_seen(self, msg_id: str) -> bool:
-        with self._lock:
-            if msg_id in self._seen_ids:
-                return True
-            self._seen_ids.add(msg_id)
-            if len(self._seen_ids) > 5000:
-                self._seen_ids.clear()
-            return False
+    def get_group_state(self, group_name: str) -> dict:
+        if group_name not in self._group_states:
+            self._group_states[group_name] = {
+                "seen_ids": set(),
+                "last_checked_ids": [],
+                "last_check_time": 0,
+            }
+        return self._group_states[group_name]
+
+    def mark_seen(self, group_name: str, msg_id: str):
+        gs = self.get_group_state(group_name)
+        gs["seen_ids"].add(msg_id)
+
+    def is_seen(self, group_name: str, msg_id: str) -> bool:
+        gs = self.get_group_state(group_name)
+        return msg_id in gs["seen_ids"]
+
+    def update_last_checked_ids(self, group_name: str, ids: list[str]):
+        gs = self.get_group_state(group_name)
+        gs["last_checked_ids"] = ids
+        gs["last_check_time"] = time.time()
+        self._save_state()
+
+    def get_last_checked_ids(self, group_name: str) -> list[str]:
+        gs = self.get_group_state(group_name)
+        return gs.get("last_checked_ids", [])
+
+    def _load_state(self):
+        if STATE_PATH.exists():
+            try:
+                data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
+                groups_data = data.get("groups", {})
+                for name, state in groups_data.items():
+                    self._group_states[name] = {
+                        "seen_ids": set(state.get("seen_ids", [])),
+                        "last_checked_ids": state.get("last_checked_ids", []),
+                        "last_check_time": state.get("last_check_time", 0),
+                    }
+                logger.info(f"已加载 {len(self._group_states)} 个群组的状态")
+            except Exception as e:
+                logger.warning(f"加载状态文件失败: {e}")
+
+    def _save_state(self):
+        try:
+            data = {
+                "groups": {
+                    name: {
+                        "seen_ids": list(state["seen_ids"]),
+                        "last_checked_ids": state["last_checked_ids"],
+                        "last_check_time": state["last_check_time"],
+                    }
+                    for name, state in self._group_states.items()
+                }
+            }
+            STATE_PATH.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception as e:
+            logger.warning(f"保存状态文件失败: {e}")
 
     def log(self, msg: str):
         ts = datetime.now().strftime("%H:%M:%S")
@@ -287,6 +340,12 @@ class _BotState:
         self.match_count = 0
         self.reaction_count = 0
         self.fail_count = 0
+        self.start_time = time.time()
+        self.recent_logs.clear()
+        self._seen_ids.clear()
+        self._group_states.clear()
+        if STATE_PATH.exists():
+            STATE_PATH.unlink()
         self.start_time = time.time()
         self.recent_logs.clear()
         self._seen_ids.clear()
