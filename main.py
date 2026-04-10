@@ -23,6 +23,7 @@ from lark_oapi.api.im.v1 import P2ImMessageReceiveV1
 # ---------------------------------------------------------------------------
 
 CONFIG_PATH = Path("config.yaml")
+STATE_PATH = Path("state.json")
 
 DEFAULT_CONFIG = {
     "monitor": {
