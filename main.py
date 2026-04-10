@@ -463,9 +463,10 @@ class RPABotCore:
         except Exception:
             return False
 
-    async def _get_messages(self) -> list[dict]:
+    async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
+        current_time = datetime.now().strftime("%H:%M:%S")
 
         try:
             wrappers = await self._page.query_selector_all(
@@ -479,26 +480,65 @@ class RPABotCore:
 
             for wrapper in wrappers[-max_msgs:]:
                 try:
+                    wrapper_class = await wrapper.get_attribute("class") or ""
+                    if "message-section" not in wrapper_class:
+                        continue
+
                     text_el = await wrapper.query_selector(
                         self.SELECTORS["message_text"]
                     )
                     if not text_el:
-                        self.log(
-                            f"没有定位到消息文本{self.SELECTORS['message_text']}，跳过"
-                        )
                         continue
                     text = (await text_el.inner_text()).strip()
                     if not text:
-                        self.log(f"消息字符串为空")
                         continue
-                    msg_id = f"{hash(text)}_{int(time.time() / 60)}"
-                    messages.append({"id": msg_id, "text": text, "element": wrapper})
+
+                    msg_id = self._generate_message_id(wrapper, text)
+                    self.log(f"[{current_time}] 抓取消息 ID={msg_id[:20]}...")
+                    messages.append(
+                        {
+                            "id": msg_id,
+                            "text": text,
+                            "element": wrapper,
+                            "group": group_name,
+                        }
+                    )
                 except Exception as e:
                     self.log(f"异常：{str(e)}")
         except Exception as e:
             self.log(f"异常：{str(e)}")
 
         return messages
+
+    def _generate_message_id(self, element, text: str) -> str:
+        import time
+
+        current_timestamp = int(time.time() * 1000)
+
+        attrs_to_try = [
+            "data-message-id",
+            "data-id",
+            "id",
+            "data-msg-id",
+            "message-id",
+        ]
+
+        for attr in attrs_to_try:
+            msg_id = element.get_attribute(attr)
+            if msg_id:
+                return msg_id
+
+        try:
+            msg_content = element.query_selector("[data-message-id]")
+            if msg_content:
+                msg_id = msg_content.get_attribute("data-message-id")
+                if msg_id:
+                    return msg_id
+        except:
+            pass
+
+        text_hash = hash(text)
+        return f"{current_timestamp}_{text_hash}"
 
     async def _react(self, message_element) -> bool:
         try:
@@ -976,6 +1016,7 @@ class App(ctk.CTk):
         w.insert("end", f"{msg}\n")
         w.see("end")
         w.configure(state="disabled")
+        logger.info(msg)
 
     def _auto_check_env(self):
         checker = EnvChecker(
