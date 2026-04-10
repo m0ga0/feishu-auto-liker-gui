@@ -494,7 +494,7 @@ class RPABotCore:
                         continue
 
                     msg_id = self._generate_message_id(wrapper, text)
-                    self.log(f"[{current_time}] 抓取消息 ID={msg_id[:20]}...")
+                    self.log(f"[{current_time}] 抓取消息 ID={msg_id}")
                     messages.append(
                         {
                             "id": msg_id,
