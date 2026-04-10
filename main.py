@@ -491,7 +491,6 @@ class RPABotCore:
                     if not text:
                         continue
                     msg_id = await self._extract_message_id(wrapper, text)
-                    self.log(f"[{current_time}] 抓取消息 ID={msg_id}...")
                     messages.append(
                         {
                             "id": msg_id,
