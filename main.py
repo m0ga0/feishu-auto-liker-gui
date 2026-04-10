@@ -27,6 +27,7 @@ from loguru import logger
 # ---------------------------------------------------------------------------
 
 CONFIG_PATH = Path("config.yaml")
+STATE_PATH = Path("state.json")
 
 DEFAULT_CONFIG = {
     "monitor": {
@@ -463,7 +464,7 @@ class RPABotCore:
         except Exception:
             return False
 
-    async def _get_messages(self) -> list[dict]:
+    async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
 
@@ -491,14 +492,51 @@ class RPABotCore:
                     if not text:
                         self.log(f"消息字符串为空")
                         continue
-                    msg_id = f"{hash(text)}_{int(time.time() / 60)}"
-                    messages.append({"id": msg_id, "text": text, "element": wrapper})
+                    msg_id = await self._extract_message_id(wrapper, text)
+                    messages.append(
+                        {
+                            "id": msg_id,
+                            "text": text,
+                            "element": wrapper,
+                            "group": group_name,
+                        }
+                    )
                 except Exception as e:
                     self.log(f"异常：{str(e)}")
         except Exception as e:
             self.log(f"异常：{str(e)}")
 
         return messages
+
+    async def _extract_message_id(self, element, text: str) -> str:
+        import time
+
+        current_timestamp = int(time.time() * 1000)
+
+        attrs_to_try = [
+            "data-message-id",
+            "data-id",
+            "id",
+            "data-msg-id",
+            "message-id",
+        ]
+
+        for attr in attrs_to_try:
+            msg_id = await element.get_attribute(attr)
+            if msg_id:
+                return msg_id
+
+        try:
+            msg_content = await element.query_selector("[data-message-id]")
+            if msg_content:
+                msg_id = await msg_content.get_attribute("data-message-id")
+                if msg_id:
+                    return msg_id
+        except:
+            pass
+
+        text_hash = hash(text)
+        return f"{current_timestamp}_{text_hash}"
 
     async def _react(self, message_element) -> bool:
         try:
@@ -560,23 +598,32 @@ class RPABotCore:
 
         monitored_groups = self.config.get("monitor", {}).get("monitored_groups", [])
         check_interval = self.config.get("monitor", {}).get("check_interval", 2)
+        current_group = ""
 
         while self._running:
             try:
-                # Navigate to groups if specified
                 if monitored_groups:
                     for group in monitored_groups:
                         if not self._running:
                             break
+                        current_group = group
                         await self._navigate_to_group(group)
+                else:
+                    current_group = "_default"
 
-                messages = await self._get_messages()
+                messages = await self._get_messages(current_group)
+
+                last_checked_ids = self.state.get_last_checked_ids(current_group)
 
                 for msg in messages:
                     if not self._running:
                         break
-                    if self.state.is_seen(msg["id"]):
+
+                    if msg["id"] in last_checked_ids:
                         continue
+
+                    self.state.mark_seen(current_group, msg["id"])
+
                     if self.matcher.matches(msg["text"]):
                         self.state.match_count += 1
                         self.log(f"🎯 匹配: {msg['text'][:80]}")
@@ -592,6 +639,10 @@ class RPABotCore:
                         await self._delay()
                     else:
                         self.log(f"消息{msg['text'][:80]}没有匹配")
+
+                if messages:
+                    new_ids = [m["id"] for m in messages]
+                    self.state.update_last_checked_ids(current_group, new_ids)
 
                 await asyncio.sleep(check_interval)
 
@@ -649,7 +700,7 @@ class App(ctk.CTk):
         ctk.set_default_color_theme("blue")
 
         self.config_data = load_config()
-        self.state = _BotState()
+        self.bot_state = _BotState()
         self.bot: Optional[RPABotCore] = None
 
         self._build_ui()
@@ -1021,11 +1072,10 @@ class App(ctk.CTk):
     def _start_bot(self):
         self._save_settings()
         self.config_data = load_config()
-
-        self.state.reset()
+        self.bot_state.reset()
         self.bot = RPABotCore(
             self.config_data,
-            self.state,
+            self.bot_state,
             log_callback=lambda msg: self._log_to_ui(msg),
         )
         self.bot.start()
@@ -1042,16 +1092,16 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
 
     def _reset_stats(self):
-        self.state.reset()
+        self.bot_state.reset()
         self._log_to_ui("🔄 统计已重置")
 
     def _update_stats_loop(self):
-        self.stat_labels["match_count"].configure(text=str(self.state.match_count))
+        self.stat_labels["match_count"].configure(text=str(self.bot_state.match_count))
         self.stat_labels["reaction_count"].configure(
-            text=str(self.state.reaction_count)
+            text=str(self.bot_state.reaction_count)
         )
-        self.stat_labels["fail_count"].configure(text=str(self.state.fail_count))
-        self.stat_labels["uptime"].configure(text=self.state.uptime)
+        self.stat_labels["fail_count"].configure(text=str(self.bot_state.fail_count))
+        self.stat_labels["uptime"].configure(text=self.bot_state.uptime)
         self.after(1000, self._update_stats_loop)
 
     def _save_settings(self):
