@@ -27,6 +27,7 @@ from loguru import logger
 # ---------------------------------------------------------------------------
 
 CONFIG_PATH = Path("config.yaml")
+STATE_PATH = Path("state.json")
 
 DEFAULT_CONFIG = {
     "monitor": {
