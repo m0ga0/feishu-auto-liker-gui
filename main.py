@@ -236,7 +236,6 @@ class PatternMatcher:
                 self._compiled.append((False, raw))
 
     def matches(self, text: str) -> bool:
-        self.log(f"🔍 正在检查消息: '{text[:20]}...'")
         for is_regex, pattern in self._compiled:
             is_match = False
             if is_regex:
@@ -246,8 +245,6 @@ class PatternMatcher:
                 if pattern in text:
                     is_match = True
 
-            p_str = pattern.pattern if is_regex else pattern
-            self.log(f"   > 规则 '{p_str}': {'✅ 符合' if is_match else '❌ 不符'}")
             if is_match:
                 return True
         return False
@@ -609,6 +606,7 @@ class RPABotCore:
                     current_group = "_default"
 
                 messages = await self._get_messages(current_group)
+                current_time = datetime.now().strftime("%H:%M:%S")
 
                 last_checked_ids = self.state.get_last_checked_ids(current_group)
 
@@ -620,22 +618,29 @@ class RPABotCore:
                         continue
 
                     self.state.mark_seen(current_group, msg["id"])
+                    msg_id = msg["id"]
+                    msg_text = msg["text"]
 
-                    if self.matcher.matches(msg["text"]):
+                    is_match = self.matcher.matches(msg_text)
+
+                    if is_match:
                         self.state.match_count += 1
-                        self.log(f"🎯 匹配: {msg['text'][:80]}")
-
                         success = await self._react(msg["element"])
                         if success:
                             self.state.reaction_count += 1
-                            self.log("✅ 点赞成功")
+                            self.log(
+                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞成功"
+                            )
                         else:
                             self.state.fail_count += 1
-                            self.log("❌ 点赞失败")
-
+                            self.log(
+                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞失败"
+                            )
                         await self._delay()
                     else:
-                        self.log(f"消息{msg['text'][:80]}没有匹配")
+                        self.log(
+                            f"[{current_time}] msg_id={msg_id} | {msg_text} | 匹配失败"
+                        )
 
                 if messages:
                     new_ids = [m["id"] for m in messages]
