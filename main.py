@@ -236,6 +236,7 @@ class PatternMatcher:
                 self._compiled.append((False, raw))
 
     def matches(self, text: str) -> bool:
+        self.log(f"🔍 正在检查消息: '{text[:20]}...'")
         for is_regex, pattern in self._compiled:
             is_match = False
             if is_regex:
@@ -245,6 +246,8 @@ class PatternMatcher:
                 if pattern in text:
                     is_match = True
 
+            p_str = pattern.pattern if is_regex else pattern
+            self.log(f"   > 规则 '{p_str}': {'✅ 符合' if is_match else '❌ 不符'}")
             if is_match:
                 return True
         return False
@@ -464,22 +467,19 @@ class RPABotCore:
     async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
-        current_time = datetime.now().strftime("%H:%M:%S")
+        last_ids = self.state.get_last_checked_ids(group_name)
 
         try:
             wrappers = await self._page.query_selector_all(
                 self.SELECTORS["message_wrapper"]
             )
             if not wrappers:
-                self.log(
-                    f"没有定位到消息渲染单元{self.SELECTORS['message_wrapper']}，继续监测。"
-                )
                 return messages
 
             for wrapper in wrappers[-max_msgs:]:
                 try:
-                    wrapper_class = await wrapper.get_attribute("class") or ""
-                    if "message-section" not in wrapper_class:
+                    msg_id = await self._extract_message_id(wrapper, "")
+                    if msg_id in last_ids:
                         continue
 
                     text_el = await wrapper.query_selector(
@@ -490,7 +490,6 @@ class RPABotCore:
                     text = (await text_el.inner_text()).strip()
                     if not text:
                         continue
-                    msg_id = await self._extract_message_id(wrapper, text)
                     messages.append(
                         {
                             "id": msg_id,
@@ -610,7 +609,6 @@ class RPABotCore:
                     current_group = "_default"
 
                 messages = await self._get_messages(current_group)
-                current_time = datetime.now().strftime("%H:%M:%S")
 
                 last_checked_ids = self.state.get_last_checked_ids(current_group)
 
@@ -618,35 +616,26 @@ class RPABotCore:
                     if not self._running:
                         break
 
-                    msg_id = msg["id"]
-                    msg_text = msg["text"]
-
-                    if msg_id in last_checked_ids:
+                    if msg["id"] in last_checked_ids:
                         continue
 
-                    self.state.mark_seen(current_group, msg_id)
+                    self.state.mark_seen(current_group, msg["id"])
 
-                    is_match = self.matcher.matches(msg["text"])
-                    match_result = "✅ 符合" if is_match else "❌ 不符"
-
-                    if is_match:
+                    if self.matcher.matches(msg["text"]):
                         self.state.match_count += 1
+                        self.log(f"🎯 匹配: {msg['text'][:80]}")
+
                         success = await self._react(msg["element"])
                         if success:
                             self.state.reaction_count += 1
-                            self.log(
-                                f"[{current_time}] msg_id={msg_id} | {msg_text}... | 点赞成功"
-                            )
+                            self.log("✅ 点赞成功")
                         else:
                             self.state.fail_count += 1
-                            self.log(
-                                f"[{current_time}] msg_id={msg_id} | {msg_text}... | 点赞失败"
-                            )
+                            self.log("❌ 点赞失败")
+
                         await self._delay()
                     else:
-                        self.log(
-                            f"[{current_time}] msg_id={msg_id} | {msg_text}... | 匹配失败"
-                        )
+                        self.log(f"消息{msg['text'][:80]}没有匹配")
 
                 if messages:
                     new_ids = [m["id"] for m in messages]
@@ -1035,7 +1024,6 @@ class App(ctk.CTk):
         w.insert("end", f"{msg}\n")
         w.see("end")
         w.configure(state="disabled")
-        logger.info(msg)
 
     def _auto_check_env(self):
         checker = EnvChecker(
