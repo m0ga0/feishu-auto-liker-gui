@@ -236,7 +236,6 @@ class PatternMatcher:
                 self._compiled.append((False, raw))
 
     def matches(self, text: str) -> bool:
-        self.log(f"🔍 正在检查消息: '{text[:20]}...'")
         for is_regex, pattern in self._compiled:
             is_match = False
             if is_regex:
@@ -246,8 +245,6 @@ class PatternMatcher:
                 if pattern in text:
                     is_match = True
 
-            p_str = pattern.pattern if is_regex else pattern
-            self.log(f"   > 规则 '{p_str}': {'✅ 符合' if is_match else '❌ 不符'}")
             if is_match:
                 return True
         return False
@@ -275,6 +272,7 @@ class _BotState:
         if group_name not in self._group_states:
             self._group_states[group_name] = {
                 "seen_ids": set(),
+                "reacted_ids": set(),
                 "last_checked_ids": [],
                 "last_check_time": 0,
             }
@@ -283,10 +281,20 @@ class _BotState:
     def mark_seen(self, group_name: str, msg_id: str):
         gs = self.get_group_state(group_name)
         gs["seen_ids"].add(msg_id)
+        self._save_state()
 
     def is_seen(self, group_name: str, msg_id: str) -> bool:
         gs = self.get_group_state(group_name)
         return msg_id in gs["seen_ids"]
+
+    def mark_reacted(self, group_name: str, msg_id: str):
+        gs = self.get_group_state(group_name)
+        gs["reacted_ids"].add(msg_id)
+        self._save_state()
+
+    def is_reacted(self, group_name: str, msg_id: str) -> bool:
+        gs = self.get_group_state(group_name)
+        return msg_id in gs["reacted_ids"]
 
     def update_last_checked_ids(self, group_name: str, ids: list[str]):
         gs = self.get_group_state(group_name)
@@ -306,6 +314,7 @@ class _BotState:
                 for name, state in groups_data.items():
                     self._group_states[name] = {
                         "seen_ids": set(state.get("seen_ids", [])),
+                        "reacted_ids": set(state.get("reacted_ids", [])),
                         "last_checked_ids": state.get("last_checked_ids", []),
                         "last_check_time": state.get("last_check_time", 0),
                     }
@@ -318,9 +327,10 @@ class _BotState:
             data = {
                 "groups": {
                     name: {
-                        "seen_ids": list(state["seen_ids"]),
-                        "last_checked_ids": state["last_checked_ids"],
-                        "last_check_time": state["last_check_time"],
+                        "seen_ids": list(state.get("seen_ids", set())),
+                        "reacted_ids": list(state.get("reacted_ids", set())),
+                        "last_checked_ids": state.get("last_checked_ids", []),
+                        "last_check_time": state.get("last_check_time", 0),
                     }
                     for name, state in self._group_states.items()
                 }
@@ -343,13 +353,6 @@ class _BotState:
         self.fail_count = 0
         self.start_time = time.time()
         self.recent_logs.clear()
-        self._seen_ids.clear()
-        self._group_states.clear()
-        if STATE_PATH.exists():
-            STATE_PATH.unlink()
-        self.start_time = time.time()
-        self.recent_logs.clear()
-        self._seen_ids.clear()
 
     @property
     def uptime(self) -> str:
@@ -473,26 +476,22 @@ class RPABotCore:
                 self.SELECTORS["message_wrapper"]
             )
             if not wrappers:
-                self.log(
-                    f"没有定位到消息渲染单元{self.SELECTORS['message_wrapper']}，继续监测。"
-                )
                 return messages
 
             for wrapper in wrappers[-max_msgs:]:
                 try:
+                    msg_id = await self._extract_message_id(wrapper, "")
+                    if self.state.is_seen(group_name, msg_id):
+                        continue
+
                     text_el = await wrapper.query_selector(
                         self.SELECTORS["message_text"]
                     )
                     if not text_el:
-                        self.log(
-                            f"没有定位到消息文本{self.SELECTORS['message_text']}，跳过"
-                        )
                         continue
                     text = (await text_el.inner_text()).strip()
                     if not text:
-                        self.log(f"消息字符串为空")
                         continue
-                    msg_id = await self._extract_message_id(wrapper, text)
                     messages.append(
                         {
                             "id": msg_id,
@@ -540,48 +539,51 @@ class RPABotCore:
 
     async def _react(self, message_element) -> bool:
         try:
-            # 1. 触发 Hover
             await message_element.hover()
-            # 增加一个微小的延迟，给飞书渲染工具栏的时间
-            await self._delay(0.3, 0.5)
 
-            # 2. 在消息容器内部进行“相对查找”
-            # 使用 wait_for_selector 限制范围在 message_element 内部
-            try:
-                toolbar = await message_element.wait_for_selector(
-                    ".messageAction__toolbar", timeout=1000
-                )
-            except:
-                self.log("未在消息容器内找到工具栏")
+            reaction_btn = None
+
+            script = """
+                (msgEl) => {
+                    const msgRect = msgEl.getBoundingClientRect();
+                    const msgCenterX = msgRect.left + msgRect.width / 2;
+                    const msgCenterY = msgRect.top + msgRect.height / 2;
+
+                    const allElements = document.querySelectorAll('*');
+                    let closestBtn = null;
+                    let closestDist = Infinity;
+
+                    for (const el of allElements) {
+                        if (!el.className || typeof el.className !== 'string') continue;
+                        const classStr = el.className.toString().toLowerCase();
+                        if (!classStr.includes('praise') && !classStr.includes('like')) continue;
+                        if (el.tagName === 'BUTTON' || el.tagName === 'SPAN' || el.tagName === 'DIV') {
+                            const rect = el.getBoundingClientRect();
+                            const centerX = rect.left + rect.width / 2;
+                            const centerY = rect.top + rect.height / 2;
+                            const dist = Math.sqrt(Math.pow(centerX - msgCenterX, 2) + Math.pow(centerY - msgCenterY, 2));
+                            if (dist < closestDist && dist < 200) {
+                                closestDist = dist;
+                                closestBtn = el;
+                            }
+                        }
+                    }
+                    return closestBtn;
+                }
+            """
+
+            reaction_btn = await message_element.evaluate_handle(
+                script, message_element
+            )
+
+            if not reaction_btn:
+                self.log("未找到点赞按钮")
                 return False
 
-            # 3. 在工具栏内找点赞按钮
-            reaction_btn = await toolbar.query_selector(".toolbar-item.praise")
-            if reaction_btn:
-                await reaction_btn.click()
-                await self._delay(0.5, 1.0)
-                return True
-
-            self.log("未在工具栏中找到点赞按钮")
-            return False
+            await reaction_btn.evaluate("el => el.click()")
+            return True
         except Exception as e:
             self.log(f"点赞操作异常: {e}")
-            return False
-
-            # 4. 点击点赞按钮
-            reaction_btn = await toolbar.query_selector(".toolbar-item.praise")
-            if reaction_btn:
-                await reaction_btn.click()
-                await self._delay(0.5, 1.0)
-                return True
-
-            self.log("未找到点赞按钮")
-            return False
-        except Exception as e:
-            self.log(f"点赞操作异常: {e}")
-            return False
-        except Exception as e:
-            self.log(f"点赞失败: {e}")
             return False
 
     async def _delay(self, min_s: float = None, max_s: float = None):
@@ -612,6 +614,7 @@ class RPABotCore:
                     current_group = "_default"
 
                 messages = await self._get_messages(current_group)
+                current_time = datetime.now().strftime("%H:%M:%S")
 
                 last_checked_ids = self.state.get_last_checked_ids(current_group)
 
@@ -619,26 +622,39 @@ class RPABotCore:
                     if not self._running:
                         break
 
-                    if msg["id"] in last_checked_ids:
+                    if self.state.is_seen(current_group, msg["id"]):
                         continue
 
                     self.state.mark_seen(current_group, msg["id"])
+                    msg_id = msg["id"]
+                    msg_text = msg["text"]
 
-                    if self.matcher.matches(msg["text"]):
+                    is_match = self.matcher.matches(msg_text)
+
+                    if is_match:
+                        if self.state.is_reacted(current_group, msg_id):
+                            self.log(
+                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 已点赞"
+                            )
+                            continue
                         self.state.match_count += 1
-                        self.log(f"🎯 匹配: {msg['text'][:80]}")
-
                         success = await self._react(msg["element"])
                         if success:
                             self.state.reaction_count += 1
-                            self.log("✅ 点赞成功")
+                            self.state.mark_reacted(current_group, msg_id)
+                            self.log(
+                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞成功"
+                            )
                         else:
                             self.state.fail_count += 1
-                            self.log("❌ 点赞失败")
-
+                            self.log(
+                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞失败"
+                            )
                         await self._delay()
                     else:
-                        self.log(f"消息{msg['text'][:80]}没有匹配")
+                        self.log(
+                            f"[{current_time}] msg_id={msg_id} | {msg_text} | 匹配失败"
+                        )
 
                 if messages:
                     new_ids = [m["id"] for m in messages]
