@@ -1103,6 +1103,7 @@ class App(ctk.CTk):
     def _stop_bot(self):
         if self.bot:
             self.bot.stop()
+        self.bot_state.reset()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
