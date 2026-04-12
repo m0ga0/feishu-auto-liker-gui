@@ -35,7 +35,7 @@ DEFAULT_CONFIG = {
         "reaction_emoji": "赞",
         "monitored_groups": [],
         "check_interval": 2,
-        "max_messages_per_check": 10,
+        "max_messages_per_check": 3,
     },
     "notification": {
         "desktop_notification": True,
@@ -478,7 +478,7 @@ class RPABotCore:
             if not wrappers:
                 return messages
 
-            for wrapper in wrappers[-max_msgs:]:
+            for wrapper in reversed(wrappers[-max_msgs:]):
                 try:
                     msg_id = await self._extract_message_id(wrapper, "")
                     if self.state.is_seen(group_name, msg_id):
