@@ -351,7 +351,7 @@ class _BotState:
         self.match_count = 0
         self.reaction_count = 0
         self.fail_count = 0
-        self.start_time = time.time()
+        self.start_time = None
         self.recent_logs.clear()
 
     @property
@@ -1119,7 +1119,8 @@ class App(ctk.CTk):
         )
         self.stat_labels["fail_count"].configure(text=str(self.bot_state.fail_count))
         self.stat_labels["uptime"].configure(text=self.bot_state.uptime)
-        self.after(1000, self._update_stats_loop)
+        if self.bot_state.is_running:
+            self.after(1000, self._update_stats_loop)
 
     def _save_settings(self):
         keywords = [
