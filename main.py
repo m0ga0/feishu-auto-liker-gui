@@ -389,10 +389,13 @@ class RPABotCore:
         "search_input": ".search-input, [class*='search'], [placeholder*='搜索']",
     }
 
-    def __init__(self, config: dict, state: _BotState, log_callback=None):
+    def __init__(
+        self, config: dict, state: _BotState, log_callback=None, stop_callback=None
+    ):
         self.config = config
         self.state = state
         self.log = log_callback or (lambda msg: None)
+        self.stop_callback = stop_callback or (lambda: None)
         self.matcher = PatternMatcher(
             config.get("monitor", {}).get("patterns", []), log_callback=self.log
         )
@@ -441,9 +444,21 @@ class RPABotCore:
 
     async def _navigate_to_feishu(self):
         self.log("正在打开飞书网页版...")
-        await self._page.goto(
-            self.FEISHU_CHAT_URL, wait_until="domcontentloaded", timeout=60000
-        )
+        try:
+            await self._page.goto(
+                self.FEISHU_CHAT_URL, wait_until="domcontentloaded", timeout=60000
+            )
+        except Exception as e:
+            error_msg = str(e)
+            if "Target page, context or browser has been closed" in error_msg:
+                self.log("⚠️ 浏览器已关闭")
+                self._running = False
+                return
+            elif "net::ERR_ABORTED" in error_msg:
+                self.log("⚠️ 页面导航中断")
+                self._running = False
+                return
+            raise
 
         self.log("等待登录...请在浏览器中完成登录")
         try:
@@ -452,8 +467,16 @@ class RPABotCore:
                 timeout=300000,
             )
             self.log("✅ 登录成功！")
-        except Exception:
-            self.log("⚠️ 登录超时，但仍可继续操作")
+        except Exception as e:
+            error_msg = str(e)
+            if "Target page, context or browser has been closed" in error_msg:
+                self.log("⚠️ 浏览器已关闭")
+                self._running = False
+            elif "Target closed" in error_msg:
+                self.log("⚠️ 页面已关闭")
+                self._running = False
+            else:
+                self.log("⚠️ 登录超时，但仍可继续操作")
 
     async def _navigate_to_group(self, group_name: str) -> bool:
         try:
@@ -464,7 +487,17 @@ class RPABotCore:
             await chat_item.click()
             await self._delay(1, 2)
             return True
-        except Exception:
+        except Exception as e:
+            error_msg = str(e)
+            if "Target page, context or browser has been closed" in error_msg:
+                self.log("⚠️ 浏览器已关闭，停止监控")
+                self._running = False
+            elif "Target closed" in error_msg:
+                self.log("⚠️ 页面已关闭，停止监控")
+                self._running = False
+            elif "net::ERR_ABORTED" in error_msg:
+                self.log("⚠️ 页面导航中断，停止监控")
+                self._running = False
             return False
 
     async def _get_messages(self, group_name: str = "") -> list[dict]:
@@ -503,7 +536,15 @@ class RPABotCore:
                 except Exception as e:
                     self.log(f"异常：{str(e)}")
         except Exception as e:
-            self.log(f"异常：{str(e)}")
+            error_msg = str(e)
+            if "Target page, context or browser has been closed" in error_msg:
+                self.log("⚠️ 浏览器已关闭，停止监控")
+                self._running = False
+            elif "Target closed" in error_msg:
+                self.log("⚠️ 页面已关闭，停止监控")
+                self._running = False
+            else:
+                self.log(f"异常：{error_msg}")
 
         return messages
 
@@ -664,10 +705,26 @@ class RPABotCore:
 
             except Exception as e:
                 self.log(f"⚠️ 监控异常: {e}")
+                if not self._running:
+                    break
+                error_msg = str(e)
+                if "Target page, context or browser has been closed" in error_msg:
+                    self.log("⚠️ 浏览器已关闭，停止监控")
+                    self._running = False
+                    break
+                elif "Target closed" in error_msg:
+                    self.log("⚠️ 页面已关闭，停止监控")
+                    self._running = False
+                    break
+                elif "net::ERR_ABORTED" in error_msg:
+                    self.log("⚠️ 页面导航中断，停止监控")
+                    self._running = False
+                    break
                 await asyncio.sleep(check_interval)
 
         self.state.is_running = False
         self.log("⏹ 监控已停止")
+        self.stop_callback()
 
     def start(self):
         """Start the bot in a background thread."""
@@ -689,14 +746,19 @@ class RPABotCore:
         self._thread.start()
 
     def stop(self):
-        """Stop the bot."""
         self._running = False
 
     async def _cleanup(self):
-        if self._context:
-            await self._context.close()
-        if self._playwright:
-            await self._playwright.stop()
+        try:
+            if self._context:
+                await self._context.close()
+        except Exception as e:
+            self.log(f"关闭浏览器上下文时出错: {e}")
+        try:
+            if self._playwright:
+                await self._playwright.stop()
+        except Exception as e:
+            self.log(f"关闭Playwright时出错: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -1093,12 +1155,21 @@ class App(ctk.CTk):
             self.config_data,
             self.bot_state,
             log_callback=lambda msg: self._log_to_ui(msg),
+            stop_callback=self._on_bot_stopped,
         )
         self.bot.start()
 
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
         self.status_indicator.configure(text="🟢 运行中", text_color="green")
+
+    def _on_bot_stopped(self):
+        self.after(0, self._update_ui_after_stop)
+
+    def _update_ui_after_stop(self):
+        self.start_btn.configure(state="normal")
+        self.stop_btn.configure(state="disabled")
+        self.status_indicator.configure(text="⏹ 已停止", text_color="red")
 
     def _stop_bot(self):
         if self.bot:
