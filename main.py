@@ -35,7 +35,7 @@ DEFAULT_CONFIG = {
         "reaction_emoji": "赞",
         "monitored_groups": [],
         "check_interval": 2,
-        "max_messages_per_check": 10,
+        "max_messages_per_check": 3,
     },
     "notification": {
         "desktop_notification": True,
@@ -351,7 +351,7 @@ class _BotState:
         self.match_count = 0
         self.reaction_count = 0
         self.fail_count = 0
-        self.start_time = time.time()
+        self.start_time = None
         self.recent_logs.clear()
 
     @property
@@ -511,7 +511,7 @@ class RPABotCore:
             if not wrappers:
                 return messages
 
-            for wrapper in wrappers[-max_msgs:]:
+            for wrapper in reversed(wrappers[-max_msgs:]):
                 try:
                     msg_id = await self._extract_message_id(wrapper, "")
                     if self.state.is_seen(group_name, msg_id):
@@ -1174,6 +1174,8 @@ class App(ctk.CTk):
     def _stop_bot(self):
         if self.bot:
             self.bot.stop()
+            self.bot = None
+        self.bot_state.reset()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
@@ -1189,7 +1191,8 @@ class App(ctk.CTk):
         )
         self.stat_labels["fail_count"].configure(text=str(self.bot_state.fail_count))
         self.stat_labels["uptime"].configure(text=self.bot_state.uptime)
-        self.after(1000, self._update_stats_loop)
+        if self.bot_state.is_running:
+            self.after(1000, self._update_stats_loop)
 
     def _save_settings(self):
         keywords = [
