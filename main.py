@@ -724,7 +724,6 @@ class RPABotCore:
                 await asyncio.sleep(check_interval)
 
         self.state.is_running = False
-        self.log("⏹ 监控已停止")
         self.stop_callback()
 
     def start(self):
@@ -1167,6 +1166,7 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="🟢 运行中", text_color="green")
 
     def _on_bot_stopped(self):
+        self._log_to_ui("⏹ 监控已停止")
         if hasattr(self, 'bot_state') and self.bot_state:
             self.after(0, self._log_final_stats)
             self.after(0, self._do_reset)
@@ -1189,9 +1189,6 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
 
     def _stop_monitoring(self):
-        if hasattr(self, 'bot_state') and self.bot_state:
-            self._log_final_stats()
-            self._do_reset()
         self._update_ui_stopped()
 
     def _update_ui_after_stop(self):
