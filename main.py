@@ -1089,12 +1089,14 @@ class App(ctk.CTk):
         self._save_settings()
         self.config_data = load_config()
         self.bot_state.reset()
+        self.bot_state.is_running = True
         self.bot = RPABotCore(
             self.config_data,
             self.bot_state,
             log_callback=lambda msg: self._log_to_ui(msg),
         )
         self.bot.start()
+        self._update_stats_loop()
 
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
