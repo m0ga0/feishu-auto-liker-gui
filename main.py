@@ -352,6 +352,7 @@ class _BotState:
         self.reaction_count = 0
         self.fail_count = 0
         self.start_time = None
+        self.is_running = False
         self.recent_logs.clear()
 
     @property

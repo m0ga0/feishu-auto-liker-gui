@@ -12,3 +12,5 @@ dist/
 .worktrees/
 .memsearch/
 state.json
+.python-version
+uv.lock
