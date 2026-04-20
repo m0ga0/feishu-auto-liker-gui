@@ -15,6 +15,10 @@ class MockApp:
         self.config_data = {}
         self.bot_state = _BotState()
         self.bot = None
+        self.log_messages = []
+
+    def _log_to_ui(self, msg):
+        self.log_messages.append(msg)
 
     def _start_bot(self):
         """模拟 _start_bot()"""
@@ -23,11 +27,30 @@ class MockApp:
         self.bot_state.start_time = time.time()  # 模拟 bot 线程设置
         self._update_stats_loop()
 
+    def _log_final_stats(self):
+        self._log_to_ui(
+            f"📊 本次运行统计 - 匹配: {self.bot_state.match_count} | "
+            f"点赞: {self.bot_state.reaction_count} | "
+            f"失败: {self.bot_state.fail_count} | "
+            f"时长: {self.bot_state.uptime}"
+        )
+
+    def _do_reset(self):
+        self.bot_state.reset()
+
+    def _update_ui_stopped(self):
+        pass  # UI 在 mock 中不实际更新
+
+    def _stop_monitoring(self):
+        self._log_final_stats()
+        self._do_reset()
+        self._update_ui_stopped()
+
     def _stop_bot(self):
         """模拟 _stop_bot()"""
         if self.bot:
             self.bot.stop()
-        self.bot_state.reset()  # reset 会清除 is_running
+        self._stop_monitoring()
 
     def _update_stats_loop(self):
         """模拟 GUI 循环, 验证 is_running"""
@@ -141,3 +164,71 @@ class TestGUITimer:
 
         # 依然是 0，因为 stop 了
         assert after_wait == "0秒"
+
+    def test_log_final_stats_before_reset(self):
+        """停止前记录统计数据到日志"""
+        app = MockApp()
+
+        app._start_bot()
+        time.sleep(1)
+        app.bot_state.match_count = 5
+        app.bot_state.reaction_count = 3
+        app.bot_state.fail_count = 2
+
+        app._log_final_stats()
+
+        assert len(app.log_messages) == 1
+        assert "📊 本次运行统计" in app.log_messages[0]
+        assert "匹配: 5" in app.log_messages[0]
+        assert "点赞: 3" in app.log_messages[0]
+        assert "失败: 2" in app.log_messages[0]
+
+    def test_do_reset_clears_state(self):
+        """_do_reset 清除状态"""
+        app = MockApp()
+
+        app._start_bot()
+        app.bot_state.match_count = 10
+        app.bot_state.reaction_count = 8
+        app.bot_state.fail_count = 1
+
+        app._do_reset()
+
+        assert app.bot_state.match_count == 0
+        assert app.bot_state.reaction_count == 0
+        assert app.bot_state.fail_count == 0
+        assert app.bot_state.is_running is False
+        assert app.bot_state.uptime == "0秒"
+
+    def test_stop_monitoring_calls_all_steps(self):
+        """_stop_monitoring 依次调用日志、重置、UI"""
+        app = MockApp()
+
+        app._start_bot()
+        time.sleep(1)
+        app.bot_state.match_count = 7
+        app._stop_monitoring()
+
+        # 1. 日志已记录
+        assert len(app.log_messages) == 1
+        assert "匹配: 7" in app.log_messages[0]
+
+        # 2. 状态已重置
+        assert app.bot_state.match_count == 0
+        assert app.bot_state.uptime == "0秒"
+
+    def test_stop_monitoring_on_browser_close(self):
+        """浏览器关闭时，_stop_monitoring 被调用并记录统计"""
+        app = MockApp()
+
+        app._start_bot()
+        time.sleep(1)
+        app.bot_state.match_count = 3
+        app.bot_state.reaction_count = 2
+
+        app._log_final_stats()
+        app._do_reset()
+
+        assert "📊 本次运行统计" in app.log_messages[0]
+        assert "匹配: 3" in app.log_messages[0]
+        assert app.bot_state.uptime == "0秒"
