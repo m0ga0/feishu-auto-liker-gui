@@ -1167,21 +1167,23 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="🟢 运行中", text_color="green")
 
     def _on_bot_stopped(self):
-        self.after(0, self._update_ui_after_stop)
+        self.after(0, self._log_final_stats_and_reset)
 
-    def _update_ui_after_stop(self):
+    def _log_final_stats_and_reset(self):
+        self._log_to_ui(f"📊 本次运行统计 - 匹配: {self.bot_state.match_count} | 点赞: {self.bot_state.reaction_count} | 失败: {self.bot_state.fail_count} | 时长: {self.bot_state.uptime}")
+        self.bot_state.reset()
         self.start_btn.configure(state="normal")
         self.stop_btn.configure(state="disabled")
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
+
+    def _update_ui_after_stop(self):
+        self._log_final_stats_and_reset()
 
     def _stop_bot(self):
         if self.bot:
             self.bot.stop()
             self.bot = None
-        self.bot_state.reset()
-        self.start_btn.configure(state="normal")
-        self.stop_btn.configure(state="disabled")
-        self.status_indicator.configure(text="⏹ 已停止", text_color="red")
+        self._log_final_stats_and_reset()
 
     def _reset_stats(self):
         self.bot_state.reset()
