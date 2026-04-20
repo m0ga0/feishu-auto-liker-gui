@@ -352,6 +352,7 @@ class _BotState:
         self.reaction_count = 0
         self.fail_count = 0
         self.start_time = None
+        self.is_running = False
         self.recent_logs.clear()
 
     @property
@@ -1151,6 +1152,7 @@ class App(ctk.CTk):
         self._save_settings()
         self.config_data = load_config()
         self.bot_state.reset()
+        self.bot_state.is_running = True
         self.bot = RPABotCore(
             self.config_data,
             self.bot_state,
@@ -1158,6 +1160,7 @@ class App(ctk.CTk):
             stop_callback=self._on_bot_stopped,
         )
         self.bot.start()
+        self._update_stats_loop()
 
         self.start_btn.configure(state="disabled")
         self.stop_btn.configure(state="normal")
