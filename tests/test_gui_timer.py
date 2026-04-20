@@ -16,6 +16,7 @@ class MockApp:
         self.bot_state = _BotState()
         self.bot = None
         self.log_messages = []
+        self._running = True
 
     def _log_to_ui(self, msg):
         self.log_messages.append(msg)
@@ -24,7 +25,7 @@ class MockApp:
         """模拟 _start_bot()"""
         self.bot_state.reset()
         self.bot_state.is_running = True
-        self.bot_state.start_time = time.time()  # 模拟 bot 线程设置
+        self.bot_state.start_time = time.time()
         self._update_stats_loop()
 
     def _log_final_stats(self):
@@ -39,7 +40,7 @@ class MockApp:
         self.bot_state.reset()
 
     def _update_ui_stopped(self):
-        pass  # UI 在 mock 中不实际更新
+        pass
 
     def _stop_monitoring(self):
         self._log_final_stats()
@@ -47,16 +48,38 @@ class MockApp:
         self._update_ui_stopped()
 
     def _stop_bot(self):
-        """模拟 _stop_bot()"""
         if self.bot:
             self.bot.stop()
         self._stop_monitoring()
 
     def _update_stats_loop(self):
-        """模拟 GUI 循环, 验证 is_running"""
         while self.bot_state.is_running:
             _ = self.bot_state.uptime
             break
+
+    def _on_bot_stopped(self):
+        """模拟浏览器关闭时的回调"""
+        self._stop_monitoring()
+
+    def _simulate_stop_button_click(self):
+        """模拟用户点击 Stop 按钮"""
+        if self.bot:
+            self.bot.stop()
+            self.bot = None
+        self._run_loop_on_stop()
+
+    def _run_loop_on_stop(self):
+        """模拟 _run_loop 结束时的处理"""
+        self._stop_monitoring()
+        self._log_to_ui("⏹ 监控已停止")
+
+    def _simulate_browser_close(self):
+        """模拟用户手动关闭浏览器"""
+        error_msg = "Target page, context or browser has been closed"
+        self._log_to_ui(f"⚠️ 浏览器已关闭，停止监控: {error_msg}")
+        self._running = False
+        self._on_bot_stopped()
+        self._log_to_ui("⏹ 监控已停止")
 
 
 class TestGUITimer:
@@ -232,3 +255,40 @@ class TestGUITimer:
         assert "📊 本次运行统计" in app.log_messages[0]
         assert "匹配: 3" in app.log_messages[0]
         assert app.bot_state.uptime == "0秒"
+
+    def test_stop_button_logs_stats_before_stop_message(self):
+        """点击 Stop 按钮时：先记录统计，再显示停止消息"""
+        app = MockApp()
+        app._simulate_stop_button_click()
+
+        assert len(app.log_messages) == 2
+        assert "📊 本次运行统计" in app.log_messages[0]
+        assert app.log_messages[1] == "⏹ 监控已停止"
+
+    def test_browser_close_logs_exception_before_stats(self):
+        """浏览器关闭时：先显示异常消息，再记录统计，最后显示停止消息"""
+        app = MockApp()
+        app._simulate_browser_close()
+
+        assert len(app.log_messages) == 3
+        assert "⚠️ 浏览器已关闭" in app.log_messages[0]
+        assert "📊 本次运行统计" in app.log_messages[1]
+        assert app.log_messages[2] == "⏹ 监控已停止"
+
+    def test_unified_order_stats_before_stop(self):
+        """统一顺序：无论是 Stop 按钮还是浏览器关闭，都是统计 → 停止"""
+        app = MockApp()
+
+        app._simulate_stop_button_click()
+        stop_order = app.log_messages.copy()
+
+        app2 = MockApp()
+        app2._simulate_browser_close()
+        browser_order = app2.log_messages.copy()
+
+        assert "📊 本次运行统计" in stop_order[0]
+        assert stop_order[1] == "⏹ 监控已停止"
+
+        assert browser_order[0] == "⚠️ 浏览器已关闭，停止监控: Target page, context or browser has been closed"
+        assert "📊 本次运行统计" in browser_order[1]
+        assert browser_order[2] == "⏹ 监控已停止"

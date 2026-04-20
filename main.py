@@ -1167,7 +1167,10 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="🟢 运行中", text_color="green")
 
     def _on_bot_stopped(self):
-        self.after(0, self._stop_monitoring)
+        if hasattr(self, 'bot_state') and self.bot_state:
+            self.after(0, self._log_final_stats)
+            self.after(0, self._do_reset)
+        self.after(0, self._update_ui_stopped)
 
     def _log_final_stats(self):
         self._log_to_ui(
@@ -1186,12 +1189,13 @@ class App(ctk.CTk):
         self.status_indicator.configure(text="⏹ 已停止", text_color="red")
 
     def _stop_monitoring(self):
-        self._log_final_stats()
-        self._do_reset()
+        if hasattr(self, 'bot_state') and self.bot_state:
+            self._log_final_stats()
+            self._do_reset()
         self._update_ui_stopped()
 
     def _update_ui_after_stop(self):
-        self._stop_monitoring()
+        self._update_ui_stopped()
 
     def _stop_bot(self):
         if self.bot:
