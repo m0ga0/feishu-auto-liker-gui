@@ -2,11 +2,9 @@
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
-import sys
 
-sys.path.insert(0, ".")
-
-from main import _BotState, RPABotCore
+from src.state import BotState
+from src.core import RPABotCore
 
 
 class MockPage:
@@ -42,7 +40,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MockPage(error_on_goto="Target page, context or browser has been closed")
 
         await bot._navigate_to_feishu()
@@ -58,7 +56,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MockPage(error_on_goto="Page.goto: net::ERR_ABORTED")
 
         await bot._navigate_to_feishu()
@@ -74,7 +72,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MockPage(error_on_wait="Target page, context or browser has been closed")
 
         result = await bot._navigate_to_group("test_group")
@@ -91,7 +89,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MockPage(error_on_wait="net::ERR_ABORTED")
 
         result = await bot._navigate_to_group("test_group")
@@ -107,7 +105,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MagicMock()
         bot._page.query_selector_all = AsyncMock(
             side_effect=Exception("Target page, context or browser has been closed")
@@ -127,7 +125,7 @@ class TestBrowserExceptionHandling:
         def mock_log(msg):
             log_messages.append(msg)
 
-        bot = RPABotCore({}, _BotState(), log_callback=mock_log)
+        bot = RPABotCore({}, BotState(), log_callback=mock_log)
         bot._page = MockPage(error_on_wait="TimeoutError: waiting for selector timed out")
 
         await bot._navigate_to_feishu()
@@ -137,7 +135,7 @@ class TestBrowserExceptionHandling:
 
     def test_stop_sets_running_false(self):
         """Test stop() sets _running to False"""
-        bot = RPABotCore({}, _BotState())
+        bot = RPABotCore({}, BotState())
         bot._running = True
 
         bot.stop()
@@ -146,5 +144,5 @@ class TestBrowserExceptionHandling:
 
     def test_initial_running_state(self):
         """Test initial _running state is False"""
-        bot = RPABotCore({}, _BotState())
+        bot = RPABotCore({}, BotState())
         assert bot._running is False

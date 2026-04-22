@@ -1,11 +1,8 @@
 """GUI Timer 行为测试 (Mock App)"""
 import pytest
 import time
-import sys
 
-sys.path.insert(0, ".")
-
-from main import _BotState
+from src.state import BotState
 
 
 class MockApp:
@@ -13,7 +10,7 @@ class MockApp:
 
     def __init__(self):
         self.config_data = {}
-        self.bot_state = _BotState()
+        self.bot_state = BotState()
         self.bot = None
         self.log_messages = []
         self._running = True

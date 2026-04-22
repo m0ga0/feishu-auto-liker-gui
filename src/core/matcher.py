@@ -19,12 +19,12 @@ class PatternMatcher:
         for is_regex, pattern in self._compiled:
             is_match = False
             if is_regex:
-                assert isinstance(pattern, re.Pattern)
-                if pattern.search(text):
+                compiled_pattern: re.Pattern = pattern  # type: ignore
+                if compiled_pattern.search(text):
                     is_match = True
             else:
-                assert isinstance(pattern, str)
-                if pattern in text:
+                literal_pattern: str = pattern  # type: ignore
+                if literal_pattern in text:
                     is_match = True
 
             if is_match:

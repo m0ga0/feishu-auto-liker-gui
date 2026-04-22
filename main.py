@@ -1,33 +1,15 @@
 """
 Feishu Auto-Liker GUI Application
-A user-friendly desktop app for monitoring Feishu group messages and auto-reacting.
+
+Backward compatibility shim - imports from src/ package.
+Run as: python main.py
+Or: python -m src
 """
 
-import asyncio
-import json
-import os
-import platform
-import random
-import re
-import shutil
-import subprocess
-import sys
-import threading
-import time
-from datetime import datetime
-from pathlib import Path
-from typing import Optional
+from src.__main__ import main
 
-import customtkinter as ctk
-import yaml
-from loguru import logger
-
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-CONFIG_PATH = Path("config.yaml")
-STATE_PATH = Path("state.json")
+if __name__ == "__main__":
+    main()
 
 DEFAULT_CONFIG = {
     "monitor": {

@@ -1,5 +1,4 @@
 import yaml
-from typing import Dict
 
 from .constants import CONFIG_PATH, STATE_PATH
 from .defaults import DEFAULT_CONFIG
