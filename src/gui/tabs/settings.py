@@ -74,7 +74,7 @@ def build_settings_tab(
         font=ctk.CTkFont(size=16, weight="bold"),
     ).pack(anchor="w", pady=(20, 5))
 
-    interval_slider.configure(from_=1, to=10, number_of_steps=19)
+    interval_slider.configure(from_=0.5, to=10, number_of_steps=19)
     interval_slider.pack(fill="x", pady=5)
     interval_slider.set(config_data.get("monitor", {}).get("check_interval", 2))
 
@@ -91,11 +91,11 @@ def build_settings_tab(
     ).pack(anchor="w", pady=(20, 5))
 
     anti = config_data.get("anti_detect", {})
-    delay_min_slider.configure(from_=1, to=3, number_of_steps=29)
+    delay_min_slider.configure(from_=0.1, to=3, number_of_steps=29)
     delay_min_slider.pack(fill="x", pady=5)
     delay_min_slider.set(anti.get("min_delay", 0.5))
 
-    delay_max_slider.configure(from_=1, to=5, number_of_steps=45)
+    delay_max_slider.configure(from_=0.5, to=5, number_of_steps=45)
     delay_max_slider.pack(fill="x", pady=5)
     delay_max_slider.set(anti.get("max_delay", 2.0))
 
