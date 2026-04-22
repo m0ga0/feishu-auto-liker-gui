@@ -1,5 +1,5 @@
 """_BotState 核心逻辑测试"""
-import pytest
+
 import time
 import sys
 

@@ -9,7 +9,6 @@ import os
 import platform
 import random
 import re
-import shutil
 import subprocess
 import sys
 import threading
@@ -144,7 +143,6 @@ class EnvChecker:
         return {"installed": False, "version": ""}
 
     def _check_playwright_browser(self) -> dict:
-        data_dir = Path(__file__).parent / "browser_data_check"
         ok, _ = self._run(
             f'"{sys.executable}" -m playwright install --dry-run chromium 2>&1'
         )
@@ -158,13 +156,6 @@ class EnvChecker:
                 pw_base = Path.home() / "Library" / "Caches" / "ms-playwright"
             else:
                 pw_base = Path.home() / ".cache" / "ms-playwright"
-
-        chromium_exists = (
-            (pw_base / "chromium-*").exists()
-            or any(p.is_dir() for p in pw_base.parent.glob("ms-playwright/chromium-*"))
-            if pw_base.exists()
-            else False
-        )
 
         # Simpler check: try to import and see if browser is available
         ok_import, _ = self._run(
@@ -239,9 +230,11 @@ class PatternMatcher:
         for is_regex, pattern in self._compiled:
             is_match = False
             if is_regex:
+                assert isinstance(pattern, re.Pattern)
                 if pattern.search(text):
                     is_match = True
             else:
+                assert isinstance(pattern, str)
                 if pattern in text:
                     is_match = True
 
@@ -445,8 +438,10 @@ class RPABotCore:
 
     async def _navigate_to_feishu(self):
         self.log("正在打开飞书网页版...")
+        page = self._page
+        assert page is not None
         try:
-            await self._page.goto(
+            await page.goto(
                 self.FEISHU_CHAT_URL, wait_until="domcontentloaded", timeout=60000
             )
         except Exception as e:
@@ -463,7 +458,7 @@ class RPABotCore:
 
         self.log("等待登录...请在浏览器中完成登录")
         try:
-            await self._page.wait_for_selector(
+            await page.wait_for_selector(
                 self.SELECTORS["message_input"],
                 timeout=300000,
             )
@@ -480,11 +475,14 @@ class RPABotCore:
                 self.log("⚠️ 登录超时，但仍可继续操作")
 
     async def _navigate_to_group(self, group_name: str) -> bool:
+        page = self._page
+        assert page is not None
         try:
-            chat_item = await self._page.wait_for_selector(
+            chat_item = await page.wait_for_selector(
                 f"{self.SELECTORS['chat_item']} >> text='{group_name}'",
                 timeout=5000,
             )
+            assert chat_item is not None
             await chat_item.click()
             await self._delay(1, 2)
             return True
@@ -504,11 +502,11 @@ class RPABotCore:
     async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
+        page = self._page
+        assert page is not None
 
         try:
-            wrappers = await self._page.query_selector_all(
-                self.SELECTORS["message_wrapper"]
-            )
+            wrappers = await page.query_selector_all(self.SELECTORS["message_wrapper"])
             if not wrappers:
                 return messages
 
@@ -573,7 +571,7 @@ class RPABotCore:
                 msg_id = await msg_content.get_attribute("data-message-id")
                 if msg_id:
                     return msg_id
-        except:
+        except Exception:
             pass
 
         text_hash = hash(text)
@@ -628,7 +626,7 @@ class RPABotCore:
             self.log(f"点赞操作异常: {e}")
             return False
 
-    async def _delay(self, min_s: float = None, max_s: float = None):
+    async def _delay(self, min_s: float | None = None, max_s: float | None = None):
         anti = self.config.get("anti_detect", {})
         mn = min_s if min_s is not None else anti.get("min_delay", 0.5)
         mx = max_s if max_s is not None else anti.get("max_delay", 2.0)
@@ -657,8 +655,6 @@ class RPABotCore:
 
                 messages = await self._get_messages(current_group)
                 current_time = datetime.now().strftime("%H:%M:%S")
-
-                last_checked_ids = self.state.get_last_checked_ids(current_group)
 
                 for msg in messages:
                     if not self._running:
@@ -1005,7 +1001,7 @@ class App(ctk.CTk):
         ).pack(anchor="w", pady=(20, 5))
 
         self.interval_slider = ctk.CTkSlider(
-            scroll_frame, from_=0.5, to=10, number_of_steps=19
+            scroll_frame, from_=1, to=10, number_of_steps=19
         )
         self.interval_slider.pack(fill="x", pady=5)
         self.interval_slider.set(
@@ -1029,13 +1025,13 @@ class App(ctk.CTk):
 
         anti = self.config_data.get("anti_detect", {})
         self.delay_min_slider = ctk.CTkSlider(
-            scroll_frame, from_=0.1, to=3, number_of_steps=29
+            scroll_frame, from_=1, to=3, number_of_steps=29
         )
         self.delay_min_slider.pack(fill="x", pady=5)
         self.delay_min_slider.set(anti.get("min_delay", 0.5))
 
         self.delay_max_slider = ctk.CTkSlider(
-            scroll_frame, from_=0.5, to=5, number_of_steps=45
+            scroll_frame, from_=1, to=5, number_of_steps=45
         )
         self.delay_max_slider.pack(fill="x", pady=5)
         self.delay_max_slider.set(anti.get("max_delay", 2.0))
@@ -1167,7 +1163,7 @@ class App(ctk.CTk):
 
     def _on_bot_stopped(self):
         self._log_to_ui("⏹ 监控已停止")
-        if hasattr(self, 'bot_state') and self.bot_state:
+        if hasattr(self, "bot_state") and self.bot_state:
             self.after(0, self._log_final_stats)
             self.after(0, self._do_reset)
         self.after(0, self._update_ui_stopped)

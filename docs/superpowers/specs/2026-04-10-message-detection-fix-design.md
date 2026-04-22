@@ -18,7 +18,7 @@
 msg_id = f"{hash(text)}_{idx}"
 ```
 
-**问题**: 
+**问题**:
 - `hash()` 每次运行结果不同（Python随机化）
 - `idx` 只是批次内索引，不具备唯一性
 
@@ -33,13 +33,13 @@ async def _get_message_id(element) -> str:
     msg_id = await element.get_attribute('data-message-id')
     if msg_id:
         return msg_id
-    
+
     # 2. 尝试其他ID属性
     for attr in ['data-id', 'id', 'data-msg-id']:
         msg_id = await element.get_attribute(attr)
         if msg_id:
             return msg_id
-    
+
     # 3. 备选：用消息创建时间 + 内容hash
     timestamp = await element.get_attribute('data-timestamp') or str(int(time.time()))
     text_hash = hash(text)  # 这个在单次运行内是稳定的
@@ -58,7 +58,7 @@ for msg in messages:
         continue  # 跳过已读
 ```
 
-**问题**: 
+**问题**:
 - 每次都取最近10条，下一轮又取同样的10条
 - "已读"标记是全局的，无法区分不同群
 - 重启后 `hash()` 变化，之前标记全失效
@@ -81,21 +81,21 @@ class GroupState:
 async def _get_new_messages(self) -> list[dict]:
     """只获取本轮新出现的消息"""
     all_messages = await self._fetch_all_messages()
-    
+
     # 获取上一轮记录的last_checked_ids
     last_ids = self.state.get_last_checked_ids()
-    
+
     new_messages = []
     for msg in all_messages:
         # 跳过已知的旧消息
         if msg["id"] in last_ids:
             break  # 因为是按时间倒序，到这里就全是旧的了
         new_messages.append(msg)
-    
+
     # 更新last_checked_ids
     if new_messages:
         self.state.update_last_checked_ids([m["id"] for m in new_messages])
-    
+
     return new_messages
 ```
 
@@ -124,7 +124,7 @@ await self._delay(0.8, 1.2)
 toolbar = await message_element.wait_for_selector(".messageAction__toolbar", timeout=2000)
 ```
 
-**问题**: 
+**问题**:
 - Hover事件可能不触发飞书的工具栏渲染
 - 工具栏未渲染时，无法找到点赞按钮
 
@@ -137,31 +137,31 @@ async def _react(self, message_element) -> bool:
         # ���法1: 先尝试hover，等待工具栏渲染
         await message_element.hover()
         await self._delay(0.8, 1.2)
-        
+
         # 尝试查找工具栏
         toolbar = await message_element.query_selector(".messageAction__toolbar")
-        
+
         # 方法2: 如果工具栏不可见，用JS直接操作
         if not toolbar:
             # 通过JS查找并检查点赞状态
             is_praised = await message_element.evaluate("""el => {
                 const btn = el.querySelector('.toolbar-item.praise');
-                return btn?.classList.contains('active') 
+                return btn?.classList.contains('active')
                     || btn?.querySelector('.icon-praise-full') !== null;
             }""")
             if is_praised:
                 return True  # 已点赞
-            
+
             # 通过JS点击点赞按钮
             await message_element.evaluate("""el => {
                 const btn = el.querySelector('.toolbar-item.praise');
                 if (btn) btn.click();
             }""")
             return True
-        
+
         # 方法3: 如果工具栏可见，正常点击
         # ... 原有逻辑
-        
+
     except Exception as e:
         self.log(f"点赞异常: {e}")
         return False
@@ -174,15 +174,15 @@ async def _simulate_real_hover(self, element):
     box = await element.bounding_box()
     if not box:
         return False
-    
+
     center_x = box['x'] + box['width'] / 2
     center_y = box['y'] + box['height'] / 2
-    
+
     # 完整的鼠标事件序列
     await self._page.mouse.move(center_x, center_y)
     await self._page.dispatch_event('x={}, y={}'.format(center_x, center_y), 'mouseenter')
     await self._page.dispatch_event('x={}, y={}'.format(center_x, center_y), 'mouseover')
-    
+
     # 等待工具栏渲染
     await self._delay(0.5, 1.0)
 ```
