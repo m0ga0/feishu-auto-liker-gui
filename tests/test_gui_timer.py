@@ -1,5 +1,5 @@
 """GUI Timer 行为测试 (Mock App)"""
-import pytest
+
 import time
 
 from src.state import BotState
@@ -170,8 +170,6 @@ class TestGUITimer:
         app._start_bot()
         time.sleep(2)
 
-        first_uptime = app.bot_state.uptime
-
         app._stop_bot()
         stopped_uptime = app.bot_state.uptime
 
@@ -286,6 +284,9 @@ class TestGUITimer:
         assert "📊 本次运行统计" in stop_order[0]
         assert stop_order[1] == "⏹ 监控已停止"
 
-        assert browser_order[0] == "⚠️ 浏览器已关闭，停止监控: Target page, context or browser has been closed"
+        assert (
+            browser_order[0]
+            == "⚠️ 浏览器已关闭，停止监控: Target page, context or browser has been closed"
+        )
         assert "📊 本次运行统计" in browser_order[1]
         assert browser_order[2] == "⏹ 监控已停止"

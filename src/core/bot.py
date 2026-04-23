@@ -5,9 +5,8 @@ import threading
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, cast
 
-from loguru import logger
 
 from ..state import BotState
 from .constants import FEISHU_CHAT_URL, SELECTORS
@@ -34,7 +33,7 @@ class RPABotCore:
             config.get("monitor", {}).get("patterns", []), log_callback=self.log
         )
         self._running = False
-        self._page = None
+        self._page: object = None
         self._context = None
         self._playwright = None
 
@@ -76,7 +75,7 @@ class RPABotCore:
     async def _navigate_to_feishu(self):
         self.log("正在打开飞书网页版...")
         try:
-            await self._page.goto(
+            await cast(Any, self._page).goto(
                 FEISHU_CHAT_URL, wait_until="domcontentloaded", timeout=60000
             )
         except Exception as e:
@@ -93,7 +92,7 @@ class RPABotCore:
 
         self.log("等待登录...请在浏览器中完成登录")
         try:
-            await self._page.wait_for_selector(
+            await cast(Any, self._page).wait_for_selector(
                 SELECTORS["message_input"],
                 timeout=300000,
             )
@@ -111,10 +110,12 @@ class RPABotCore:
 
     async def _navigate_to_group(self, group_name: str) -> bool:
         try:
-            chat_item = await self._page.wait_for_selector(
+            chat_item = await cast(Any, self._page).wait_for_selector(
                 f"{SELECTORS['chat_item']} >> text='{group_name}'",
                 timeout=5000,
             )
+            if chat_item is None:
+                raise RuntimeError(f"Chat item not found for group: {group_name}")
             await chat_item.click()
             await self._delay(1, 2)
             return True
@@ -136,7 +137,7 @@ class RPABotCore:
         max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
 
         try:
-            wrappers = await self._page.query_selector_all(
+            wrappers = await cast(Any, self._page).query_selector_all(
                 SELECTORS["message_wrapper"]
             )
             if not wrappers:
@@ -148,9 +149,7 @@ class RPABotCore:
                     if self.state.is_seen(group_name, msg_id):
                         continue
 
-                    text_el = await wrapper.query_selector(
-                        SELECTORS["message_text"]
-                    )
+                    text_el = await wrapper.query_selector(SELECTORS["message_text"])
                     if not text_el:
                         continue
                     text = (await text_el.inner_text()).strip()
@@ -201,8 +200,8 @@ class RPABotCore:
                 msg_id = await msg_content.get_attribute("data-message-id")
                 if msg_id:
                     return msg_id
-        except:
-            pass
+        except Exception as e:
+            self.log(f"Unexpected error: {str(e)}")
 
         text_hash = hash(text)
         return f"{current_timestamp}_{text_hash}"
@@ -285,8 +284,6 @@ class RPABotCore:
 
                 messages = await self._get_messages(current_group)
                 current_time = datetime.now().strftime("%H:%M:%S")
-
-                last_checked_ids = self.state.get_last_checked_ids(current_group)
 
                 for msg in messages:
                     if not self._running:

@@ -1,7 +1,7 @@
 """Browser Exception Handling Tests"""
+
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from src.state import BotState
 from src.core import RPABotCore
@@ -41,7 +41,9 @@ class TestBrowserExceptionHandling:
             log_messages.append(msg)
 
         bot = RPABotCore({}, BotState(), log_callback=mock_log)
-        bot._page = MockPage(error_on_goto="Target page, context or browser has been closed")
+        bot._page = MockPage(
+            error_on_goto="Target page, context or browser has been closed"
+        )
 
         await bot._navigate_to_feishu()
 
@@ -73,7 +75,9 @@ class TestBrowserExceptionHandling:
             log_messages.append(msg)
 
         bot = RPABotCore({}, BotState(), log_callback=mock_log)
-        bot._page = MockPage(error_on_wait="Target page, context or browser has been closed")
+        bot._page = MockPage(
+            error_on_wait="Target page, context or browser has been closed"
+        )
 
         result = await bot._navigate_to_group("test_group")
 
@@ -126,7 +130,9 @@ class TestBrowserExceptionHandling:
             log_messages.append(msg)
 
         bot = RPABotCore({}, BotState(), log_callback=mock_log)
-        bot._page = MockPage(error_on_wait="TimeoutError: waiting for selector timed out")
+        bot._page = MockPage(
+            error_on_wait="TimeoutError: waiting for selector timed out"
+        )
 
         await bot._navigate_to_feishu()
 

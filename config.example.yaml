@@ -7,7 +7,7 @@ monitor:
     - 打卡
     - 签到
     # - "re:.*紧急.*"
-  
+
   # Emoji to react with (must match Feishu's emoji names)
   # Common: 赞, 爱心, 鼓掌, 微笑, 大笑, 感谢, 玫瑰, 加油
   reaction_emoji: 赞
@@ -27,7 +27,7 @@ monitor:
 notification:
   # System notification (desktop popup)
   desktop_notification: true
-  
+
   # Send notification message to self-chat
   # Set to your own name or leave empty to disable
   self_chat_notify: false
@@ -37,7 +37,7 @@ anti_detect:
   # Random delay range (seconds) added after each action
   min_delay: 0.5
   max_delay: 2.0
-  
+
   # Random delay before clicking reaction (simulate human thinking)
   reaction_delay_min: 0.3
   reaction_delay_max: 1.5
@@ -46,11 +46,11 @@ anti_detect:
 browser:
   # Path to persistent user data directory (stores login session)
   user_data_dir: "./feishu_browser_data"
-  
+
   # Window size
   width: 1280
   height: 800
-  
+
   # Run in headless mode (NOT recommended for Feishu - may trigger detection)
   headless: false
 

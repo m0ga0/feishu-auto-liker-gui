@@ -19,9 +19,20 @@ dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "pytest-asyncio>=0.21",
+    "pre-commit",
+    "ruff",
+    "ty>=0.0.32",
+    "isort",
 ]
 
 [tool.pytest.ini_options]
+addopts = [
+    "--cov=main.py",
+    "--cov-branch",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=80"
+]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -29,7 +40,18 @@ python_functions = ["test_*"]
 
 [tool.coverage.run]
 source = ["main"]
-omit = ["tests/*", "build/*", "dist/*"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "build/*",
+    "dist/*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/__init__.py",
+    ".venv/*",
+    "*/venv/*",
+    "*/.venv/*"
+]
 
 [tool.coverage.report]
 exclude_lines = [
@@ -39,3 +61,9 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
+
+[tool.ty.rules]
+unresolved-import = "ignore"
+
+[tool.ruff]
+fix = true

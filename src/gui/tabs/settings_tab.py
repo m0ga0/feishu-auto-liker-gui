@@ -25,6 +25,8 @@ class SettingsTab:
             scroll_frame, text="😀 点赞表情", font=ctk.CTkFont(size=16, weight="bold")
         ).pack(anchor="w", pady=(20, 5))
 
+        self.emoji_var = ctk.StringVar(value="赞")
+
         emoji_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         emoji_frame.pack(fill="x", pady=5)
 
@@ -60,9 +62,7 @@ class SettingsTab:
         self.interval_slider.pack(fill="x", pady=5)
         self.interval_slider.set(2)
 
-        self.interval_label = ctk.CTkLabel(
-            scroll_frame, text="2.0 秒"
-        )
+        self.interval_label = ctk.CTkLabel(scroll_frame, text="2.0 秒")
         self.interval_label.pack()
 
         self.interval_slider.configure(
@@ -90,14 +90,10 @@ class SettingsTab:
         delay_label_frame = ctk.CTkFrame(scroll_frame, fg_color="transparent")
         delay_label_frame.pack(fill="x")
         ctk.CTkLabel(delay_label_frame, text="最小:").pack(side="left")
-        self.delay_min_label = ctk.CTkLabel(
-            delay_label_frame, text="0.5s"
-        )
+        self.delay_min_label = ctk.CTkLabel(delay_label_frame, text="0.5s")
         self.delay_min_label.pack(side="left", padx=5)
         ctk.CTkLabel(delay_label_frame, text="最大:").pack(side="left", padx=(20, 0))
-        self.delay_max_label = ctk.CTkLabel(
-            delay_label_frame, text="2.0s"
-        )
+        self.delay_max_label = ctk.CTkLabel(delay_label_frame, text="2.0s")
         self.delay_max_label.pack(side="left", padx=5)
 
         self.delay_min_slider.configure(
@@ -147,7 +143,9 @@ class SettingsTab:
         self.groups_text.insert("1.0", "\n".join(groups))
 
         self.interval_slider.set(config_data.get("check_interval", 2))
-        self.interval_label.configure(text=f"{config_data.get('check_interval', 2):.1f} 秒")
+        self.interval_label.configure(
+            text=f"{config_data.get('check_interval', 2):.1f} 秒"
+        )
 
     def load_anti_detect(self, anti_data: dict):
         self.delay_min_slider.set(anti_data.get("min_delay", 0.5))
