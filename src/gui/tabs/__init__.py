@@ -1,5 +1,3 @@
-from .install import build_install_tab
-from .console import build_console_tab
-from .settings import build_settings_tab
-
-__all__ = ["build_install_tab", "build_console_tab", "build_settings_tab"]
+from .console_tab import ConsoleTab  # noqa: F401
+from .install_tab import InstallTab  # noqa: F401
+from .settings_tab import SettingsTab  # noqa: F401

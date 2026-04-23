@@ -1,12 +1,12 @@
 import threading
-from typing import Optional
 
 import customtkinter as ctk
 
-from ..config import load_config
+from ..config import load_config, save_config
 from ..core import RPABotCore
+from ..installer import EnvChecker
 from ..state import BotState
-from .tabs import build_install_tab, build_console_tab, build_settings_tab
+from .tabs import ConsoleTab, InstallTab, SettingsTab
 
 
 class App(ctk.CTk):
@@ -22,7 +22,8 @@ class App(ctk.CTk):
 
         self.config_data = load_config()
         self.bot_state = BotState()
-        self.bot: Optional[RPABotCore] = None
+        self.bot = None
+        self.install_checker = None
 
         self._build_ui()
         self._log_to_ui("欢迎使用飞书自动点赞助手！")
@@ -38,125 +39,97 @@ class App(ctk.CTk):
         self._build_install_tab()
         self._build_console_tab()
         self._build_settings_tab()
+        self._start_stats_loop()
+
+    def _start_stats_loop(self):
+        if hasattr(self, "bot_state") and self.bot_state.is_running:
+            self.console_tab.update_stats(
+                self.bot_state.match_count,
+                self.bot_state.reaction_count,
+                self.bot_state.fail_count,
+                self.bot_state.uptime
+            )
+            self.after(1000, self._start_stats_loop)
 
     def _build_install_tab(self):
         tab = self.tabview.tab("安装")
-
-        self.install_items = {}
-        self.install_btn = ctk.CTkButton(tab, command=self._run_installation)
-        self.install_log = ctk.CTkTextbox(tab)
-
-        build_install_tab(
+        self.install_tab = InstallTab(
             tab,
-            self.install_items,
-            self.install_btn,
-            self.install_log,
-            self.config_data,
+            on_check_env=self._on_check_env,
+            on_open_folder=self._open_data_folder,
+            app_settings=self.config_data
         )
-        self.after(500, self._auto_check_env)
+        self.install_tab.set_install_callback(self._run_installation)
 
     def _build_console_tab(self):
         tab = self.tabview.tab("控制台")
-
-        self.status_indicator = ctk.CTkLabel(tab)
-        self.stat_labels = {}
-        self.start_btn = ctk.CTkButton(tab, command=self._start_bot)
-        self.stop_btn = ctk.CTkButton(tab, command=self._stop_bot)
-        self.reset_btn = ctk.CTkButton(tab, command=self._reset_stats)
-        self.console_log = ctk.CTkTextbox(tab)
-
-        build_console_tab(
+        self.console_tab = ConsoleTab(
             tab,
-            self.status_indicator,
-            self.stat_labels,
-            self.start_btn,
-            self.stop_btn,
-            self.reset_btn,
-            self.console_log,
-            self.config_data,
+            on_start=self._start_bot,
+            on_stop=self._stop_bot,
+            on_reset=self._reset_stats
         )
-        self._update_stats_loop()
 
     def _build_settings_tab(self):
         tab = self.tabview.tab("设置")
+        self.settings_tab = SettingsTab(tab, on_save=self._save_settings)
+        self.settings_tab.load_config(self.config_data.get("monitor", {}))
+        self.settings_tab.load_anti_detect(self.config_data.get("anti_detect", {}))
+        self.settings_tab.load_notification(self.config_data.get("notification", {}))
 
-        self.keywords_text = ctk.CTkTextbox(tab)
-        self.emoji_var = ctk.StringVar()
-        self.groups_text = ctk.CTkTextbox(tab)
-        self.interval_slider = ctk.CTkSlider(tab, from_=0.5, to=10, number_of_steps=19)
-        self.interval_label = ctk.CTkLabel(tab)
-        self.delay_min_slider = ctk.CTkSlider(tab, from_=0.1, to=3, number_of_steps=29)
-        self.delay_min_label = ctk.CTkLabel(tab)
-        self.delay_max_slider = ctk.CTkSlider(tab, from_=0.5, to=5, number_of_steps=45)
-        self.delay_max_label = ctk.CTkLabel(tab)
-        self.desktop_notify_var = ctk.BooleanVar()
-        self.self_chat_var = ctk.BooleanVar()
+    def _log_to_ui(self, msg: str):
+        if hasattr(self, "console_tab"):
+            self.console_tab.log_message(msg)
 
-        build_settings_tab(
-            tab,
-            self.keywords_text,
-            self.emoji_var,
-            self.groups_text,
-            self.interval_slider,
-            self.interval_label,
-            self.delay_min_slider,
-            self.delay_min_label,
-            self.delay_max_slider,
-            self.delay_max_label,
-            self.desktop_notify_var,
-            self.self_chat_var,
-            self.config_data,
-        )
-
-    def _log_to_ui(self, msg: str, widget=None):
-        w = widget or self.console_log
-        w.configure(state="normal")
-        w.insert("end", f"{msg}\n")
-        w.see("end")
-        w.configure(state="disabled")
-
-    def _auto_check_env(self):
-        from ..installer import EnvChecker
-
+    def _on_check_env(self, install_tab):
         checker = EnvChecker(
-            log_callback=lambda msg: self._log_to_ui(msg, self.install_log)
+            log_callback=lambda msg: install_tab.log_message(msg)
         )
         results = checker.check_all()
 
-        for key, status in results.items():
-            label = self.install_items.get(key)
-            if label:
-                if status["installed"]:
-                    label.configure(text="✅ 已安装", text_color="green")
-                else:
-                    label.configure(text="❌ 未安装", text_color="red")
+        key_map = {
+            "python": "python",
+            "pip": "pip", 
+            "playwright_pkg": "playwright_pkg",
+            "playwright": "playwright_browser",
+        }
+        for key, data in results.items():
+            display_key = key_map.get(key, key)
+            status = "✅ 已安装" if data["installed"] else "❌ 未安装"
+            install_tab.update_status(display_key, status)
+
+    def _open_data_folder(self):
+        from pathlib import Path
+        browser_data = Path(__file__).parent.parent.parent / "feishu_browser_data"
+        if browser_data.exists():
+            import subprocess
+            subprocess.Popen(["xdg-open", str(browser_data)])
+        else:
+            browser_data.mkdir(parents=True, exist_ok=True)
+            import subprocess
+            subprocess.Popen(["xdg-open", str(browser_data)])
 
     def _run_installation(self):
-        self.install_btn.configure(state="disabled", text="⏳ 安装中...")
-        self._log_to_ui("开始安装依赖...", self.install_log)
+        self.install_tab.set_button_state(False)
+        self._log_to_ui("开始安装依赖...")
 
         def install_thread():
-            from ..installer import EnvChecker
-
             checker = EnvChecker(
-                log_callback=lambda msg: self._log_to_ui(msg, self.install_log)
+                log_callback=lambda msg: self._log_to_ui(msg)
             )
             checker.check_all()
             success = checker.install_all(
                 progress_callback=lambda name: self._log_to_ui(
-                    f"正在安装 {name}...", self.install_log
+                    f"正在安装 {name}..."
                 )
             )
 
             self.after(
                 0,
-                lambda: self.install_btn.configure(
-                    state="normal",
-                    text="✅ 安装完成" if success else "❌ 安装失败，重试",
-                ),
+                lambda: self.install_tab.set_button_state(True)
             )
             if success:
-                self.after(0, lambda: self._auto_check_env())
+                self.after(0, lambda: self._on_check_env(self.install_tab))
 
         threading.Thread(target=install_thread, daemon=True).start()
 
@@ -172,18 +145,15 @@ class App(ctk.CTk):
             stop_callback=self._on_bot_stopped,
         )
         self.bot.start()
-        self._update_stats_loop()
-
-        self.start_btn.configure(state="disabled")
-        self.stop_btn.configure(state="normal")
-        self.status_indicator.configure(text="🟢 运行中", text_color="green")
+        self.console_tab.on_bot_started()
+        self._start_stats_loop()
 
     def _on_bot_stopped(self):
         self._log_to_ui("⏹ 监控已停止")
         if hasattr(self, "bot_state") and self.bot_state:
             self.after(0, self._log_final_stats)
             self.after(0, self._do_reset)
-        self.after(0, self._update_ui_stopped)
+        self.after(0, self.console_tab.on_bot_stopped)
 
     def _log_final_stats(self):
         self._log_to_ui(
@@ -196,61 +166,42 @@ class App(ctk.CTk):
     def _do_reset(self):
         self.bot_state.reset()
 
-    def _update_ui_stopped(self):
-        self.start_btn.configure(state="normal")
-        self.stop_btn.configure(state="disabled")
-        self.status_indicator.configure(text="⏹ 已停止", text_color="red")
-
-    def _stop_monitoring(self):
-        self._update_ui_stopped()
-
-    def _update_ui_after_stop(self):
-        self._update_ui_stopped()
-
     def _stop_bot(self):
         if self.bot:
-            self.bot.stop()
+            bot = self.bot
+            bot.stop()
+            if hasattr(bot, "_thread"):
+                bot._thread.join(timeout=5)
             self.bot = None
-        self._stop_monitoring()
 
     def _reset_stats(self):
         self.bot_state.reset()
+        self.console_tab.reset()
         self._log_to_ui("🔄 统计已重置")
 
-    def _update_stats_loop(self):
-        self.stat_labels["match_count"].configure(text=str(self.bot_state.match_count))
-        self.stat_labels["reaction_count"].configure(
-            text=str(self.bot_state.reaction_count)
-        )
-        self.stat_labels["fail_count"].configure(text=str(self.bot_state.fail_count))
-        self.stat_labels["uptime"].configure(text=self.bot_state.uptime)
-        if self.bot_state.is_running:
-            self.after(1000, self._update_stats_loop)
-
     def _save_settings(self):
-        from ..config import save_config
-
-        keywords = [
-            line.strip()
-            for line in self.keywords_text.get("1.0", "end").split("\n")
-            if line.strip()
-        ]
-        groups = [
-            line.strip()
-            for line in self.groups_text.get("1.0", "end").split("\n")
-            if line.strip()
-        ]
-
-        self.config_data["monitor"]["patterns"] = keywords
-        self.config_data["monitor"]["reaction_emoji"] = self.emoji_var.get()
-        self.config_data["monitor"]["monitored_groups"] = groups
-        self.config_data["monitor"]["check_interval"] = self.interval_slider.get()
-        self.config_data["anti_detect"]["min_delay"] = self.delay_min_slider.get()
-        self.config_data["anti_detect"]["max_delay"] = self.delay_max_slider.get()
-        self.config_data["notification"]["desktop_notification"] = (
-            self.desktop_notify_var.get()
+        settings = self.settings_tab.get_config_data()
+        self.config_data["monitor"]["patterns"] = settings["patterns"]
+        self.config_data["monitor"]["reaction_emoji"] = settings["reaction_emoji"]
+        self.config_data["monitor"]["monitored_groups"] = settings["monitored_groups"]
+        self.config_data["monitor"]["check_interval"] = settings["check_interval"]
+        self.config_data["anti_detect"]["min_delay"] = settings["min_delay"]
+        self.config_data["anti_detect"]["max_delay"] = settings["max_delay"]
+        self.config_data["notification"]["desktop_notification"] = settings.get(
+            "desktop_notification", False
         )
-        self.config_data["notification"]["self_chat_notify"] = self.self_chat_var.get()
+        self.config_data["notification"]["self_chat_notify"] = settings.get(
+            "self_chat_notify", False
+        )
 
         save_config(self.config_data)
         self._log_to_ui("💾 设置已保存")
+
+
+def main():
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
