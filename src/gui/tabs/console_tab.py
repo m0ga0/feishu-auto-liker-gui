@@ -43,7 +43,7 @@ class ConsoleTab:
             fg_color="green",
             hover_color="darkgreen",
             font=ctk.CTkFont(size=14, weight="bold"),
-            command=on_start
+            command=on_start,
         )
         self.start_btn.pack(side="left", padx=10)
 
@@ -54,15 +54,12 @@ class ConsoleTab:
             hover_color="darkred",
             font=ctk.CTkFont(size=14, weight="bold"),
             state="disabled",
-            command=on_stop
+            command=on_stop,
         )
         self.stop_btn.pack(side="left", padx=10)
 
         self.reset_btn = ctk.CTkButton(
-            btn_frame,
-            text="🔄 重置统计",
-            font=ctk.CTkFont(size=14),
-            command=on_reset
+            btn_frame, text="🔄 重置统计", font=ctk.CTkFont(size=14), command=on_reset
         )
         self.reset_btn.pack(side="left", padx=10)
 

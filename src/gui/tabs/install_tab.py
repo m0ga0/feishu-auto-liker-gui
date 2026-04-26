@@ -10,9 +10,7 @@ class InstallTab:
         self._on_open_folder = on_open_folder
 
         ctk.CTkLabel(
-            tab,
-            text="环境检测",
-            font=ctk.CTkFont(size=16, weight="bold")
+            tab, text="环境检测", font=ctk.CTkFont(size=16, weight="bold")
         ).pack(anchor="w", padx=40, pady=(20, 5))
 
         ctk.CTkLabel(
@@ -46,7 +44,7 @@ class InstallTab:
             text="🚀 一键安装",
             font=ctk.CTkFont(size=16, weight="bold"),
             height=50,
-            command=self._on_install_clicked
+            command=self._on_install_clicked,
         )
         self.install_btn.pack(pady=30)
 

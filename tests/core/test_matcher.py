@@ -1,7 +1,5 @@
 """Tests for PatternMatcher - tests behavior not internal implementation."""
 
-import pytest
-
 from src.core.matcher import PatternMatcher
 
 

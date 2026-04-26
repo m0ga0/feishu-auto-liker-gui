@@ -27,7 +27,7 @@ dev = [
 
 [tool.pytest.ini_options]
 addopts = [
-    "--cov=main.py",
+    "--cov=src",
     "--cov-branch",
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
@@ -39,7 +39,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 
 [tool.coverage.run]
-source = ["main"]
+source = ["src"]
 omit = [
     "*/tests/*",
     "*/test_*",

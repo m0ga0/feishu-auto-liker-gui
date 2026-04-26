@@ -2,12 +2,11 @@ import json
 import threading
 import time
 from datetime import datetime
-from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from loguru import logger
 
-from ..config import STATE_PATH
+from ..config.constants import STATE_PATH
 
 
 class BotState:

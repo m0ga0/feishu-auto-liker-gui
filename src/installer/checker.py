@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import platform
 import subprocess
@@ -6,12 +8,32 @@ from pathlib import Path
 from typing import Callable, Optional
 
 
+def _default_runner(cmd: str, timeout: int = 10) -> tuple[bool, str]:
+    if getattr(sys, "frozen", False):
+        return True, "Frozen"
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+        )
+        return result.returncode == 0, result.stdout.strip()
+    except Exception as e:
+        return False, str(e)
+
+
 class EnvChecker:
     """Check and install required dependencies."""
 
-    def __init__(self, log_callback: Optional[Callable] = None):
+    def __init__(
+        self,
+        log_callback: Optional[Callable] = None,
+        runner: Optional[Callable[[str, int], tuple[bool, str]]] = None,
+    ):
         self.log = log_callback or (lambda msg: None)
+        self._runner = runner or _default_runner
         self._results = {}
+
+    def _run(self, cmd: str, timeout: int = 10) -> tuple[bool, str]:
+        return self._runner(cmd, timeout)
 
     def check_all(self) -> dict:
         """Check all dependencies."""
@@ -39,17 +61,6 @@ class EnvChecker:
             }
         return self._results
 
-    def _run(self, cmd: str, timeout: int = 10) -> tuple[bool, str]:
-        if getattr(sys, "frozen", False):
-            return True, "Frozen"
-        try:
-            result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=timeout
-            )
-            return result.returncode == 0, result.stdout.strip()
-        except Exception as e:
-            return False, str(e)
-
     def _check_python(self) -> dict:
         ok, version = self._run(f'"{sys.executable}" --version')
         if ok:
@@ -70,10 +81,7 @@ class EnvChecker:
         return {"installed": False, "version": ""}
 
     def _check_playwright_browser(self) -> dict:
-        data_dir = Path(__file__).parent / "browser_data_check"
-        ok, _ = self._run(
-            f'"{sys.executable}" -m playwright install --dry-run chromium 2>&1'
-        )
+        self._run(f'"{sys.executable}" -m playwright install --dry-run chromium 2>&1')
         pw_base = Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", ""))
         if not pw_base.exists():
             if platform.system() == "Windows":
@@ -82,13 +90,6 @@ class EnvChecker:
                 pw_base = Path.home() / "Library" / "Caches" / "ms-playwright"
             else:
                 pw_base = Path.home() / ".cache" / "ms-playwright"
-
-        chromium_exists = (
-            (pw_base / "chromium-*").exists()
-            or any(p.is_dir() for p in pw_base.parent.glob("ms-playwright/chromium-*"))
-            if pw_base.exists()
-            else False
-        )
 
         ok_import, _ = self._run(
             f'"{sys.executable}" -c "from playwright.sync_api import sync_playwright; p=sync_playwright().start(); p.chromium.launch(); p.stop()"'

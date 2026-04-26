@@ -47,7 +47,7 @@ class App(ctk.CTk):
                 self.bot_state.match_count,
                 self.bot_state.reaction_count,
                 self.bot_state.fail_count,
-                self.bot_state.uptime
+                self.bot_state.uptime,
             )
             self.after(1000, self._start_stats_loop)
 
@@ -57,7 +57,7 @@ class App(ctk.CTk):
             tab,
             on_check_env=self._on_check_env,
             on_open_folder=self._open_data_folder,
-            app_settings=self.config_data
+            app_settings=self.config_data,
         )
         self.install_tab.set_install_callback(self._run_installation)
 
@@ -67,7 +67,7 @@ class App(ctk.CTk):
             tab,
             on_start=self._start_bot,
             on_stop=self._stop_bot,
-            on_reset=self._reset_stats
+            on_reset=self._reset_stats,
         )
 
     def _build_settings_tab(self):
@@ -82,14 +82,12 @@ class App(ctk.CTk):
             self.console_tab.log_message(msg)
 
     def _on_check_env(self, install_tab):
-        checker = EnvChecker(
-            log_callback=lambda msg: install_tab.log_message(msg)
-        )
+        checker = EnvChecker(log_callback=lambda msg: install_tab.log_message(msg))
         results = checker.check_all()
 
         key_map = {
             "python": "python",
-            "pip": "pip", 
+            "pip": "pip",
             "playwright_pkg": "playwright_pkg",
             "playwright": "playwright_browser",
         }
@@ -100,13 +98,16 @@ class App(ctk.CTk):
 
     def _open_data_folder(self):
         from pathlib import Path
+
         browser_data = Path(__file__).parent.parent.parent / "feishu_browser_data"
         if browser_data.exists():
             import subprocess
+
             subprocess.Popen(["xdg-open", str(browser_data)])
         else:
             browser_data.mkdir(parents=True, exist_ok=True)
             import subprocess
+
             subprocess.Popen(["xdg-open", str(browser_data)])
 
     def _run_installation(self):
@@ -114,20 +115,13 @@ class App(ctk.CTk):
         self._log_to_ui("开始安装依赖...")
 
         def install_thread():
-            checker = EnvChecker(
-                log_callback=lambda msg: self._log_to_ui(msg)
-            )
+            checker = EnvChecker(log_callback=lambda msg: self._log_to_ui(msg))
             checker.check_all()
             success = checker.install_all(
-                progress_callback=lambda name: self._log_to_ui(
-                    f"正在安装 {name}..."
-                )
+                progress_callback=lambda name: self._log_to_ui(f"正在安装 {name}...")
             )
 
-            self.after(
-                0,
-                lambda: self.install_tab.set_button_state(True)
-            )
+            self.after(0, lambda: self.install_tab.set_button_state(True))
             if success:
                 self.after(0, lambda: self._on_check_env(self.install_tab))
 

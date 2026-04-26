@@ -1,6 +1,6 @@
 import yaml
 
-from .constants import CONFIG_PATH, STATE_PATH
+from .constants import CONFIG_PATH
 from .defaults import DEFAULT_CONFIG
 
 

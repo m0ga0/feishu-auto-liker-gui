@@ -14,19 +14,13 @@ class TestConfigModule:
         """Use temp config file for tests."""
         from src import config
 
-        # Save original paths
         orig_config = config.CONFIG_PATH
-        orig_state = config.STATE_PATH
 
-        # Set temp paths
         config.CONFIG_PATH = tmp_path / "config.yaml"
-        config.STATE_PATH = tmp_path / "state.json"
 
         yield
 
-        # Restore
         config.CONFIG_PATH = orig_config
-        config.STATE_PATH = orig_state
 
     def test_load_config_returns_defaults_when_file_not_exists(self, tmp_path):
         """When config.yaml doesn't exist, should return DEFAULT_CONFIG."""
