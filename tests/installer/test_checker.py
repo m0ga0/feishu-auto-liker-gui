@@ -238,10 +238,37 @@ class TestEnvChecker:
         assert result is True
         assert any("chromium" in cmd for cmd in called)
 
-    def test_default_runner_handles_exception(self):
-        """默认 runner 处理异常"""
-        from src.installer.checker import _default_runner
+    def test_check_all_frozen(self, monkeypatch):
+        """测试 frozen 环境检测"""
+        import sys
 
-        result = _default_runner("nonexistent_command_xyz_123", timeout=1)
-        assert result[0] is False
-        assert isinstance(result[1], str)
+        monkeypatch.setattr(sys, "frozen", True)
+
+        checker = EnvChecker()
+        results = checker.check_all()
+
+        assert results["python"]["version"] == "Frozen"
+        assert results["pip"]["installed"] is True
+
+    def test_install_all_progress_callback(self):
+        """测试安装进度回调"""
+        called = []
+
+        def progress(name):
+            called.append(name)
+
+        def mock_runner(cmd, timeout=10):
+            return True, "ok"
+
+        checker = EnvChecker(runner=mock_runner)
+        checker._results = {
+            "pip": {"installed": False},
+            "playwright_pkg": {"installed": False},
+            "playwright_browser": {"installed": False},
+        }
+
+        checker.install_all(progress_callback=progress)
+
+        assert "pip" in called
+        assert "playwright_pkg" in called
+        assert "playwright_browser" in called

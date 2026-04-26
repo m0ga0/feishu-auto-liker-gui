@@ -1,5 +1,9 @@
 """RPABotCore 同步接口测试"""
 
+import pytest
+import time
+from unittest.mock import MagicMock
+
 from src.core.bot import RPABotCore
 from src.core.matcher import PatternMatcher
 from src.state import BotState
@@ -152,18 +156,41 @@ class TestRPABotCoreSyncInterface:
         assert bot.matcher.matches("pattern1 found") is True
         assert bot.matcher.matches("pattern2 found") is True
 
-    def test_anti_detect_settings_in_config(self):
-        """反检测设置"""
-        config = {
-            "anti_detect": {
-                "min_delay": 0.5,
-                "max_delay": 2.0,
-                "reaction_delay_min": 0.3,
-                "reaction_delay_max": 1.5,
-            }
-        }
-        state = BotState()
-        RPABotCore(config, state)
+    @pytest.mark.asyncio
+    async def test_extract_message_id(self):
+        """测试消息ID提取逻辑"""
+        from unittest.mock import AsyncMock
 
-        assert config["anti_detect"]["min_delay"] == 0.5
-        assert config["anti_detect"]["max_delay"] == 2.0
+        config = {"monitor": {"patterns": ["test"]}}
+        state = BotState()
+        bot = RPABotCore(config, state)
+
+        # Mock element
+        element = MagicMock()
+        element.get_attribute = AsyncMock()
+        element.query_selector = AsyncMock()
+
+        # Scenario 1: Attribute exists
+        element.get_attribute.return_value = "id_123"
+        msg_id = await bot._extract_message_id(element, "text")
+        assert msg_id == "id_123"
+
+        # Scenario 2: Attribute missing, fallback to hash
+        element.get_attribute.return_value = None
+        element.query_selector.return_value = None
+        msg_id = await bot._extract_message_id(element, "some_text")
+        assert "_" in msg_id  # Should be timestamp_hash
+
+    @pytest.mark.asyncio
+    async def test_delay_uses_config(self):
+        """测试延迟使用配置"""
+        config = {"anti_detect": {"min_delay": 0.01, "max_delay": 0.02}}
+        state = BotState()
+        bot = RPABotCore(config, state)
+
+        start = time.time()
+        await bot._delay()
+        end = time.time()
+
+        # Should be at least 0.01
+        assert end - start >= 0.01
