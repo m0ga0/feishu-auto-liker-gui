@@ -238,17 +238,16 @@ class TestEnvChecker:
         assert result is True
         assert any("chromium" in cmd for cmd in called)
 
-    def test_check_all_frozen(self, monkeypatch):
+    def test_check_all_frozen(self):
         """测试 frozen 环境检测"""
-        import sys
+        from unittest.mock import patch
 
-        monkeypatch.setattr(sys, "frozen", True)
+        with patch("sys.frozen", True, create=True):
+            checker = EnvChecker()
+            results = checker.check_all()
 
-        checker = EnvChecker()
-        results = checker.check_all()
-
-        assert results["python"]["version"] == "Frozen"
-        assert results["pip"]["installed"] is True
+            assert results["python"]["version"] == "Frozen"
+            assert results["pip"]["installed"] is True
 
     def test_install_all_progress_callback(self):
         """测试安装进度回调"""
