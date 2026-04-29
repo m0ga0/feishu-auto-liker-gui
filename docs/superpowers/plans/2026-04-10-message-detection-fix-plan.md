@@ -134,18 +134,18 @@ msg_id = await self._extract_message_id(wrapper, text)
 async def _extract_message_id(self, element, text: str) -> str:
     """提取消息唯一ID，优先使用飞书原生ID"""
     import time
-    
+
     # 1. 尝试 data-message-id
     msg_id = await element.get_attribute('data-message-id')
     if msg_id:
         return msg_id
-    
+
     # 2. 尝试其他ID属性
     for attr in ['data-id', 'id', 'data-msg-id']:
         msg_id = await element.get_attribute(attr)
         if msg_id:
             return msg_id
-    
+
     # 3. 尝试从消息元素内部查找ID
     try:
         msg_content = await element.query_selector('[data-message-id]')
@@ -155,7 +155,7 @@ async def _extract_message_id(self, element, text: str) -> str:
                 return msg_id
     except:
         pass
-    
+
     # 4. 备选：用时间戳 + 内容hash (单次运行内稳定)
     timestamp = int(time.time() * 1000)
     text_hash = hash(text)  # Python内稳定
@@ -167,8 +167,8 @@ async def _extract_message_id(self, element, text: str) -> str:
 返回消息时包含群名称:
 ```python
 messages.append({
-    "id": msg_id, 
-    "text": text, 
+    "id": msg_id,
+    "text": text,
     "element": wrapper,
     "group": group_name,
 })
@@ -193,15 +193,15 @@ for msg in messages:
     if not self._running:
         break
     group_name = msg.get("group", "")
-    
+
     # 跳过已知的旧消息（用 last_checked_ids 判断）
     last_ids = self.state.get_last_checked_ids(group_name)
     if msg["id"] in last_ids:
         continue
-    
+
     # 标记为已读
     self.state.mark_seen(group_name, msg["id"])
-    
+
     if self.matcher.matches(msg["text"]):
         # ... 点赞逻辑
 ```
@@ -243,28 +243,28 @@ async def _react(self, message_element) -> bool:
         await message_element.hover()
         await self._delay(0.8, 1.2)
         toolbar = await message_element.query_selector(".messageAction__toolbar")
-        
+
         if not toolbar:
             # 方法2: 用JS直接操作
             return await self._react_via_js(message_element)
-        
+
         # 检查已点赞
         is_praised = await message_element.evaluate("""el => {
             const btn = el.querySelector('.toolbar-item.praise');
-            return btn?.classList.contains('active') 
+            return btn?.classList.contains('active')
                 || btn?.querySelector('.icon-praise-full') !== null;
         }""")
         if is_praised:
             self.log("消息已点赞，跳过")
             return True
-        
+
         # 点击点赞按钮
         reaction_btn = await toolbar.query_selector(".toolbar-item.praise")
         if reaction_btn:
             await reaction_btn.click()
             await self._delay(0.5, 1.0)
             return True
-        
+
         return False
 ```
 
@@ -277,13 +277,13 @@ async def _react_via_js(self, message_element) -> bool:
         # 检查是否已点赞
         is_praised = await message_element.evaluate("""el => {
             const btn = el.querySelector('.toolbar-item.praise');
-            return btn?.classList.contains('active') 
+            return btn?.classList.contains('active')
                 || btn?.querySelector('.icon-praise-full') !== null;
         }""")
         if is_praised:
             self.log("消息已点赞(JS)，跳过")
             return True
-        
+
         # 通过JS点击点赞按钮
         result = await message_element.evaluate("""el => {
             const btn = el.querySelector('.toolbar-item.praise');
@@ -296,7 +296,7 @@ async def _react_via_js(self, message_element) -> bool:
         if result:
             await self._delay(0.5, 1.0)
             return True
-        
+
         self.log("未找到点赞按钮(JS)")
         return False
     except Exception as e:
@@ -313,17 +313,17 @@ async def _simulate_real_hover(self, element):
         box = await element.bounding_box()
         if not box:
             return False
-        
+
         center_x = box['x'] + box['width'] / 2
         center_y = box['y'] + box['height'] / 2
-        
+
         # 移动到元素位置
         await self._page.mouse.move(center_x, center_y)
-        
+
         # 触发事件
         await element.dispatch_event('mouseenter')
         await element.dispatch_event('mouseover')
-        
+
         await self._delay(0.5, 1.0)
         return True
     except Exception as e:
