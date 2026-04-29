@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from src.state import BotState
-from src.core import RPABotCore
+from src.core.bot import RPABotCore
 
 
 class MockPage:
