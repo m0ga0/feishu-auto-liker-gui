@@ -9,3 +9,12 @@ venv/
 build/
 dist/
 *.spec
+.worktrees/
+.memsearch/
+state.json
+.python-version
+uv.lock
+.coverage
+.pytest_cache/
+.ruff_cache/
+docs/
