@@ -12,6 +12,7 @@ dependencies = [
     "packaging>=23.0",
     "subprocess-tee>=0.4.0",
     "pillow>=12.2.0",
+    "sqlmodel>=0.0.14",
 ]
 
 [project.optional-dependencies]
