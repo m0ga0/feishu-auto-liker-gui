@@ -14,10 +14,14 @@ Replace the current file-based configuration (yaml/json) with a hybrid storage s
 - `MonitorSettings`: Loaded from SQLite, with `monitor-default-settings.yaml` as the initial fallback.
 
 ### DAO Layer
-- **Interfaces (`src/config/dao.py`)**: `AppConfigRepository` (ABCs). Only methods for `AppConfig` related data.
+- **Interfaces (`src/config/dao.py`)**:
+    - `IMonitorSettingsRepository`: ABC for monitor settings.
+    - `IInternalSettingsRepository`: ABC for internal settings.
+    - `AppConfigRepository`: Facade exposing both repositories.
 - **Implementations (`src/dao/config/`)**:
-    - `SqliteAppConfigRepository`: For database operations.
-    - `YamlAppConfigRepository`: For YAML file operations.
+    - `SqliteMonitorSettingsRepository`: SQLite impl for `IMonitorSettingsRepository`.
+    - `YamlMonitorSettingsRepository`: YAML impl for `IMonitorSettingsRepository`.
+    - `YamlInternalSettingsRepository`: YAML impl for `IInternalSettingsRepository`.
 
 ## Migration Strategy
 - Migrate existing `config.yaml` to the new structure.
