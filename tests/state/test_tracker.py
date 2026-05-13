@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src.state import BotState
+from parkbot.state import BotState
 
 
 class TestBotStateGroupState:
@@ -13,7 +13,7 @@ class TestBotStateGroupState:
     @pytest.fixture(autouse=True)
     def mock_state_file(self, tmp_path, monkeypatch):
         """Mock STATE_PATH and disable file loading."""
-        from src.state import tracker
+        from parkbot.state import tracker
 
         mock_path = tmp_path / "nonexistent_state.json"
         monkeypatch.setattr(tracker, "STATE_PATH", mock_path)

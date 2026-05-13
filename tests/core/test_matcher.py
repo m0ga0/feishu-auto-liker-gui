@@ -1,6 +1,6 @@
 """Tests for PatternMatcher - tests behavior not internal implementation."""
 
-from src.core.matcher import PatternMatcher
+from parkbot.core.matcher import PatternMatcher
 
 
 class TestPatternMatcher:

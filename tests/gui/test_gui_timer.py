@@ -2,7 +2,7 @@
 
 import time
 
-from src.state import BotState
+from parkbot.state import BotState
 
 
 class MockApp:

@@ -1,98 +1,28 @@
-"""Tests for config module - tests behavior not internal implementation."""
-
-import yaml
-import pytest
-
-from src.config import load_config, save_config, DEFAULT_CONFIG
+from parkbot.infra import get_settings_repository
 
 
 class TestConfigModule:
-    """Test config module behavior through public interface."""
+    """Test config module behavior."""
 
-    @pytest.fixture(autouse=True)
-    def temp_config(self, tmp_path, monkeypatch):
-        """Use temp config file for tests."""
-        from src import config
+    def test_get_config_repository(self):
+        repo = get_settings_repository()
+        assert repo is not None
+        assert repo.monitor is not None
+        assert repo.internal is not None
 
-        orig_config = config.CONFIG_PATH
+    def test_monitor_settings_roundtrip(self):
+        repo = get_settings_repository()
+        monitor = repo.monitor.get()
+        assert monitor is not None
+        original_patterns = monitor.patterns
 
-        config.CONFIG_PATH = tmp_path / "config.yaml"
+        monitor.patterns = ["test_pattern"]
+        repo.monitor.save(monitor)
 
-        yield
+        new_monitor = repo.monitor.get()
+        assert new_monitor is not None
+        assert new_monitor.patterns == ["test_pattern"]
 
-        config.CONFIG_PATH = orig_config
-
-    def test_load_config_returns_defaults_when_file_not_exists(self, tmp_path):
-        """When config.yaml doesn't exist, should return DEFAULT_CONFIG."""
-        from src import config
-
-        # Ensure file doesn't exist
-        config.CONFIG_PATH = tmp_path / "nonexistent.yaml"
-        result = load_config()
-        assert result == DEFAULT_CONFIG
-
-    def test_load_config_returns_actual_config_when_file_exists(self, tmp_path):
-        """When config.yaml exists, should return its contents."""
-        from src import config
-
-        test_config = {"monitor": {"patterns": ["test"]}}
-        config.CONFIG_PATH.write_text(yaml.dump(test_config))
-
-        result = load_config()
-
-        assert result == test_config
-
-    def test_save_config_writes_to_file(self, tmp_path):
-        """save_config should write to config.yaml."""
-        from src import config
-
-        test_config = {"monitor": {"patterns": ["test"]}}
-
-        save_config(test_config)
-
-        assert config.CONFIG_PATH.exists()
-        loaded = yaml.safe_load(config.CONFIG_PATH.read_text())
-        assert loaded == test_config
-
-    def test_save_and_load_roundtrip(self):
-        """save then load should preserve data."""
-        test_config = {
-            "monitor": {
-                "patterns": ["re:.*test.*"],
-                "check_interval": 5,
-            },
-            "anti_detect": {
-                "min_delay": 1.0,
-                "max_delay": 3.0,
-            },
-        }
-
-        save_config(test_config)
-        loaded = load_config()
-
-        assert loaded["monitor"]["patterns"] == ["re:.*test.*"]
-        assert loaded["monitor"]["check_interval"] == 5
-        assert loaded["anti_detect"]["min_delay"] == 1.0
-
-    def test_default_config_structure(self):
-        """DEFAULT_CONFIG should have expected keys."""
-        assert "monitor" in DEFAULT_CONFIG
-        assert "notification" in DEFAULT_CONFIG
-        assert "anti_detect" in DEFAULT_CONFIG
-        assert "browser" in DEFAULT_CONFIG
-        assert "log" in DEFAULT_CONFIG
-
-    def test_default_monitor_config(self):
-        """Default monitor config should be valid."""
-        monitor = DEFAULT_CONFIG["monitor"]
-        assert "patterns" in monitor
-        assert isinstance(monitor["patterns"], list)
-        assert "check_interval" in monitor
-        assert isinstance(monitor["check_interval"], int)
-
-    def test_default_anti_detect_config(self):
-        """Default anti-detect config should be valid."""
-        anti = DEFAULT_CONFIG["anti_detect"]
-        assert "min_delay" in anti
-        assert "max_delay" in anti
-        assert float(anti["min_delay"]) < float(anti["max_delay"])  # type: ignore
+        # Cleanup
+        monitor.patterns = original_patterns
+        repo.monitor.save(monitor)

@@ -1,7 +1,7 @@
 """GUI InstallTab 逻辑测试"""
 
 from unittest.mock import MagicMock, patch
-from src.gui.tabs.install_tab import InstallTab
+from parkbot.gui.tabs.install_tab import InstallTab
 
 
 class TestInstallTab:

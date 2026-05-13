@@ -1,7 +1,7 @@
 """GUI ConsoleTab 逻辑测试"""
 
 from unittest.mock import MagicMock
-from src.gui.tabs.console_tab import ConsoleTab
+from parkbot.gui.tabs.console_tab import ConsoleTab
 import pytest
 
 

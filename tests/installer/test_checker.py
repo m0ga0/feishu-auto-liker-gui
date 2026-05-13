@@ -1,6 +1,6 @@
 """EnvChecker 核心逻辑测试"""
 
-from src.installer.checker import EnvChecker
+from parkbot.installer.checker import EnvChecker
 
 
 class TestEnvChecker:

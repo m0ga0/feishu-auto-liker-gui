@@ -3,8 +3,8 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from src.state import BotState
-from src.core.bot import RPABotCore
+from parkbot.state import BotState
+from parkbot.core.bot import RPABotCore
 
 
 class MockPage:
