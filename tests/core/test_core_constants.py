@@ -1,6 +1,6 @@
 """Tests for core constants - tests behavior not internal implementation."""
 
-from src.core.constants import FEISHU_CHAT_URL, SELECTORS
+from parkbot.core.constants import FEISHU_CHAT_URL, SELECTORS
 
 
 class TestCoreConstants:

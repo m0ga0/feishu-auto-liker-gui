@@ -1,136 +1,130 @@
-"""GUI App 逻辑测试"""
-
+import pytest
 from unittest.mock import MagicMock, patch
 
 # Import App - the conftest provides mocked customtkinter
-from src.gui.app import App
+from parkbot.gui.app import App
+from parkbot.config.models import MonitorSettings, InternalSettings
+
+
+@pytest.fixture
+def mock_config_repo():
+    """Create a mock config repository."""
+    repo = MagicMock()
+
+    # Setup monitor settings
+    monitor_settings = MonitorSettings(
+        patterns=[], reaction_emoji="👍", check_interval=2.0, max_messages_per_check=3
+    )
+    repo.monitor.get.return_value = monitor_settings
+
+    # Setup internal settings
+    internal_settings = InternalSettings(
+        browser_user_data_dir="./feishu_browser_data",
+        browser_win_width=1280,
+        browser_win_height=800,
+        logging_level="INFO",
+        logging_dir="rpa_bot.log",
+        win_title="飞书自动点赞助手",
+        win_width=900,
+        win_height=700,
+        win_min_width=800,
+        win_min_height=600,
+        appearance_mode="system",
+        color_theme="blue",
+    )
+    repo.internal.get.return_value = internal_settings
+
+    return repo
 
 
 class TestApp:
-    """App 核心逻辑测试"""
-
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_app_init(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试应用初始化"""
+        App(app_settings=mock_config_repo)
 
-        app = App()
-
-        assert app.config_data == {"monitor": {}, "anti_detect": {}, "notification": {}}
         assert mock_bot_state.called
         assert mock_console.called
         assert mock_install.called
         assert mock_settings.called
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
-    @patch("src.gui.app.save_config")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_save_settings(
         self,
-        mock_save_config,
         mock_settings_class,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试保存设置逻辑"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
 
         mock_settings = mock_settings_class.return_value
         mock_settings.get_config_data.return_value = {
             "patterns": ["test"],
             "reaction_emoji": "👍",
-            "monitored_groups": ["group1"],
             "check_interval": 2.0,
-            "min_delay": 0.5,
-            "max_delay": 1.0,
-            "desktop_notification": True,
-            "self_chat_notify": False,
+            "max_messages_per_check": 3,
         }
         app.settings_tab = mock_settings
 
-        app._log_to_ui = MagicMock()  # ty: ignore[invalid-assignment]
+        with patch.object(app, "_log_to_ui", MagicMock()):
+            app._save_settings()
+            assert app.monitor_settings.patterns == ["test"]
+            mock_config_repo.monitor.save.assert_called()
 
-        app._save_settings()
-
-        assert mock_save_config.called
-        assert app.config_data["monitor"]["patterns"] == ["test"]
-        assert app.config_data["notification"]["desktop_notification"] is True
-
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_log_to_ui_with_console_tab(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试日志输出到控制台"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
 
         app.console_tab = MagicMock()
         app._log_to_ui("test message")
 
         app.console_tab.log_message.assert_called_once_with("test message")
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_log_to_ui_without_console_tab(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试无控制台时不报错"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
 
         app._log_to_ui("test message")
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
-    @patch("src.gui.app.EnvChecker")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.EnvChecker")
     def test_on_check_env(
         self,
         mock_checker_class,
@@ -138,10 +132,9 @@ class TestApp:
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试环境检查"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
 
         mock_checker = MagicMock()
         mock_checker.check_all.return_value = {
@@ -157,14 +150,10 @@ class TestApp:
 
         assert mock_checker.check_all.called
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     @patch("subprocess.Popen")
     def test_open_data_folder_exists(
         self,
@@ -173,25 +162,21 @@ class TestApp:
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试打开数据文件夹(已存在)"""
+        app = App(app_settings=mock_config_repo)
+
         with patch("pathlib.Path.exists", return_value=True):
-            app = App()
             app._open_data_folder()
 
             mock_popen.assert_called()
 
     @patch("threading.Thread")
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
-    @patch("src.gui.app.EnvChecker")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.EnvChecker")
     def test_run_installation(
         self,
         mock_checker_class,
@@ -199,11 +184,10 @@ class TestApp:
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
         mock_thread,
+        mock_config_repo,
     ):
-        """测试运行安装"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.install_tab = MagicMock()
         app.console_tab = MagicMock()
 
@@ -220,15 +204,11 @@ class TestApp:
         mock_thread.assert_called()
         mock_thread_instance.start.assert_called()
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
-    @patch("src.gui.app.RPABotCore")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.RPABotCore")
     def test_start_bot(
         self,
         mock_bot_core,
@@ -236,129 +216,105 @@ class TestApp:
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试启动机器人"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.settings_tab = MagicMock()
         app.settings_tab.get_config_data.return_value = {
             "patterns": [],
             "reaction_emoji": "👍",
-            "monitored_groups": [],
             "check_interval": 2.0,
-            "min_delay": 0.5,
-            "max_delay": 1.0,
-            "desktop_notification": False,
-            "self_chat_notify": False,
+            "max_messages_per_check": 3,
         }
 
         app.console_tab = MagicMock()
-        app._log_to_ui = MagicMock()  # ty: ignore[invalid-assignment]
-
-        app._start_bot()
+        with patch.object(app, "_log_to_ui", MagicMock()):
+            app._start_bot()
+            assert app.bot is not None
+            mock_bot_core.assert_called()
 
         assert mock_bot_core.called
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_on_bot_stopped(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试机器人停止回调不报错"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.bot_state = MagicMock()
         app.console_tab = MagicMock()
 
         app._on_bot_stopped()
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch.object(App, "_log_to_ui")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_log_final_stats(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
+        mock_log_to_ui,
     ):
-        """测试输出最终统计"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.bot_state.match_count = 10
         app.bot_state.reaction_count = 8
         app.bot_state.fail_count = 2
 
-        app._log_to_ui = MagicMock()  # ty: ignore[invalid-assignment]
-
         app._log_final_stats()
 
-        app._log_to_ui.assert_called()  # ty: ignore[unresolved-attribute]
+        mock_log_to_ui.assert_called()
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_do_reset(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
     ):
-        """测试重置状态"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.bot_state = MagicMock()
 
         app._do_reset()
 
         app.bot_state.reset.assert_called_once()
 
-    @patch(
-        "src.gui.app.load_config",
-        return_value={"monitor": {}, "anti_detect": {}, "notification": {}},
-    )
-    @patch("src.gui.app.BotState")
-    @patch("src.gui.app.ConsoleTab")
-    @patch("src.gui.app.InstallTab")
-    @patch("src.gui.app.SettingsTab")
+    @patch.object(App, "_log_to_ui")
+    @patch("parkbot.gui.app.BotState")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.SettingsTab")
     def test_reset_stats(
         self,
         mock_settings,
         mock_install,
         mock_console,
         mock_bot_state,
-        mock_load_config,
+        mock_config_repo,
+        mock_log_to_ui,
     ):
-        """测试重置统计"""
-        app = App()
+        app = App(app_settings=mock_config_repo)
         app.bot_state = MagicMock()
         app.console_tab = MagicMock()
-
-        app._log_to_ui = MagicMock()  # ty: ignore[invalid-assignment]
 
         app._reset_stats()
 
         app.bot_state.reset.assert_called_once()
         app.console_tab.reset.assert_called_once()
-        app._log_to_ui.assert_called()  # ty: ignore[unresolved-attribute]
+        mock_log_to_ui.assert_called()

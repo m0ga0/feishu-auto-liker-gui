@@ -4,9 +4,9 @@ import pytest
 import time
 from unittest.mock import MagicMock
 
-from src.core.bot import RPABotCore
-from src.core.matcher import PatternMatcher
-from src.state import BotState
+from parkbot.core.bot import RPABotCore
+from parkbot.core.matcher import PatternMatcher
+from parkbot.state import BotState
 
 
 class TestRPABotCoreSyncInterface:

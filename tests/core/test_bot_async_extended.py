@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
-from src.core.bot import RPABotCore
-from src.state import BotState
+from parkbot.core.bot import RPABotCore
+from parkbot.state import BotState
 import asyncio
 
 
@@ -237,40 +237,45 @@ async def test_react_not_found():
 @pytest.mark.asyncio
 async def test_run_loop_with_messages():
     """测试运行循环处理消息"""
-    config = {"monitor": {"check_interval": 0.01, "monitored_groups": ["Group A"]}}
-    state = BotState()
-    with patch.object(state, "mark_seen", side_effect=state.mark_seen) as mock_mark:
-        bot = RPABotCore(config, state)
-        bot._running = True
+    config = {"monitor": {"check_interval": 0.01}}
 
-        # Mock methods
-        with (
-            patch.object(bot, "_navigate_to_group", new_callable=AsyncMock) as mock_nav,
-            patch.object(bot, "_get_messages", new_callable=AsyncMock) as mock_get,
-            patch.object(bot.matcher, "matches", return_value=True),
-            patch.object(bot, "_react", new_callable=AsyncMock) as mock_react,
-        ):
-            mock_nav.return_value = True
-            mock_get.side_effect = [
-                [
-                    {
-                        "id": "m1",
-                        "text": "hello",
-                        "element": AsyncMock(),
-                        "group": "Group A",
-                    }
-                ],
-                [],
-            ]
-            mock_react.return_value = True
+    # Patch _load_state globally for BotState before instantiation
+    with patch("parkbot.state.tracker.BotState._load_state"):
+        state = BotState()
+        with patch.object(state, "mark_seen", side_effect=state.mark_seen) as mock_mark:
+            bot = RPABotCore(config, state)
+            bot._running = True
 
-            loop_task = asyncio.create_task(bot._run_loop())
-            await asyncio.sleep(0.1)
-            bot.stop()
-            await loop_task
+            # Mock methods
+            with (
+                patch.object(
+                    bot, "_navigate_to_group", new_callable=AsyncMock
+                ) as mock_nav,
+                patch.object(bot, "_get_messages", new_callable=AsyncMock) as mock_get,
+                patch.object(bot.matcher, "matches", return_value=True),
+                patch.object(bot, "_react", new_callable=AsyncMock) as mock_react,
+            ):
+                mock_nav.return_value = True
+                mock_get.side_effect = [
+                    [
+                        {
+                            "id": "m1",
+                            "text": "hello",
+                            "element": AsyncMock(),
+                            "group": "_default",
+                        }
+                    ],
+                    [],
+                ]
+                mock_react.return_value = True
 
-            assert state.reaction_count >= 0
-            mock_mark.assert_called_with("Group A", "m1")
+                loop_task = asyncio.create_task(bot._run_loop())
+                await asyncio.sleep(0.1)
+                bot.stop()
+                await loop_task
+
+                assert state.reaction_count >= 0
+                mock_mark.assert_called_with("_default", "m1")
 
 
 @pytest.mark.asyncio
@@ -361,33 +366,36 @@ async def test_run_loop_already_seen():
 async def test_run_loop_no_match():
     """测试运行循环处理不匹配的消息"""
     config = {"monitor": {"check_interval": 0.01}}
-    state = BotState()
-    with patch.object(state, "mark_seen", side_effect=state.mark_seen) as mock_mark:
-        bot = RPABotCore(config, state)
-        bot._running = True
 
-        with (
-            patch.object(bot, "_get_messages", new_callable=AsyncMock) as mock_get,
-            patch.object(bot.matcher, "matches", return_value=False),
-        ):
-            mock_get.side_effect = [
-                [
-                    {
-                        "id": "m1",
-                        "text": "nomatch",
-                        "element": AsyncMock(),
-                        "group": "_default",
-                    }
-                ],
-                [],
-            ]
+    # Patch _load_state globally for BotState before instantiation
+    with patch("parkbot.state.tracker.BotState._load_state"):
+        state = BotState()
+        with patch.object(state, "mark_seen", side_effect=state.mark_seen) as mock_mark:
+            bot = RPABotCore(config, state)
+            bot._running = True
 
-            loop_task = asyncio.create_task(bot._run_loop())
-            await asyncio.sleep(0.05)
-            bot.stop()
-            await loop_task
-            assert state.reaction_count == 0
-            mock_mark.assert_called_with("_default", "m1")
+            with (
+                patch.object(bot, "_get_messages", new_callable=AsyncMock) as mock_get,
+                patch.object(bot.matcher, "matches", return_value=False),
+            ):
+                mock_get.side_effect = [
+                    [
+                        {
+                            "id": "m1",
+                            "text": "nomatch",
+                            "element": AsyncMock(),
+                            "group": "_default",
+                        }
+                    ],
+                    [],
+                ]
+
+                loop_task = asyncio.create_task(bot._run_loop())
+                await asyncio.sleep(0.1)
+                bot.stop()
+                await loop_task
+                assert state.reaction_count == 0
+                mock_mark.assert_called_with("_default", "m1")
 
 
 @pytest.mark.asyncio

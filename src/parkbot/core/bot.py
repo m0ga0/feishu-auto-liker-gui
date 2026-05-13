@@ -256,43 +256,38 @@ class RPABotCore:
             return False
 
     async def _delay(self, min_s: float | None = None, max_s: float | None = None):
-        anti = self.config.get("anti_detect", {})
-        mn = min_s if min_s is not None else anti.get("min_delay", 0.5)
-        mx = max_s if max_s is not None else anti.get("max_delay", 2.0)
+        mn = min_s if min_s is not None else 0.5
+        mx = max_s if max_s is not None else 2.0
         await asyncio.sleep(random.uniform(mn, mx))
 
     async def _run_loop(self):
+        self.log("DEBUG: _run_loop started")
         self._running = True
         self.state.is_running = True
         self.state.start_time = time.time()
         self.log("🚀 开始监控群消息...")
 
-        monitored_groups = self.config.get("monitor", {}).get("monitored_groups", [])
         check_interval = self.config.get("monitor", {}).get("check_interval", 2)
-        current_group = ""
+        current_group = "_default"
 
         while self._running:
+            self.log(f"DEBUG: loop, running={self._running}")
             try:
-                if monitored_groups:
-                    for group in monitored_groups:
-                        if not self._running:
-                            break
-                        current_group = group
-                        await self._navigate_to_group(group)
-                else:
-                    current_group = "_default"
-
                 messages = await self._get_messages(current_group)
+                self.log(f"DEBUG: got messages: {messages}")
                 current_time = datetime.now().strftime("%H:%M:%S")
 
                 for msg in messages:
+                    self.log(f"DEBUG: Processing msg {msg['id']}")
                     if not self._running:
                         break
 
                     if self.state.is_seen(current_group, msg["id"]):
+                        self.log(f"DEBUG: msg {msg['id']} already seen")
                         continue
 
                     self.state.mark_seen(current_group, msg["id"])
+                    self.log(f"DEBUG: marked seen {msg['id']}")
                     msg_id = msg["id"]
                     msg_text = msg["text"]
 

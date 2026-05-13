@@ -1,0 +1,13 @@
+# Feishu Auto-Liker GUI System Internal Settings
+browser_user_data_dir: "./feishu_browser_data"
+browser_win_width: 1280
+browser_win_height: 800
+logging_level: INFO
+logging_dir: "rpa_bot.log"
+win_title: "飞书车位助手"
+win_width: 900
+win_height: 700
+win_min_width: 800
+win_min_height: 600
+appearance_mode: "system"
+color_theme: "blue"

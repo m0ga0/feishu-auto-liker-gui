@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock
-from src.core.bot import RPABotCore
-from src.state import BotState
+from parkbot.core.bot import RPABotCore
+from parkbot.state import BotState
 
 
 @pytest.mark.asyncio

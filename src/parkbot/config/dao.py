@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Optional
 from .models import MonitorSettings, InternalSettings
 
 
 class IMonitorSettingsRepository(ABC):
     @abstractmethod
-    def get(self) -> MonitorSettings: ...
+    def get(self) -> Optional[MonitorSettings]: ...
     @abstractmethod
     def save(self, settings: MonitorSettings): ...
 
@@ -16,7 +17,7 @@ class IInternalSettingsRepository(ABC):
     def save(self, settings: InternalSettings): ...
 
 
-class AppConfigRepository:
+class AppSettingsRepository:
     def __init__(
         self, monitor: IMonitorSettingsRepository, internal: IInternalSettingsRepository
     ):

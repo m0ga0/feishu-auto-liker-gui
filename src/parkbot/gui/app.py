@@ -1,35 +1,55 @@
+# python libs
+from typing import cast
 import threading
 
+# 3rd-party libs
 import customtkinter as ctk
 
-from ..config import load_config, save_config
+# internal packages
+from ..core.exceptions import AppError
+from ..config.models import MonitorSettings
 from ..core import RPABotCore
 from ..installer import EnvChecker
 from ..state import BotState
+
+# package modules
 from .tabs import ConsoleTab, InstallTab, SettingsTab
 
 
 class App(ctk.CTk):
-    def __init__(self):
+    def __init__(self, app_settings):
         super().__init__()
 
-        self.title("飞书自动点赞助手")
-        self.geometry("900x700")
-        self.minsize(800, 600)
+        if app_settings is None:
+            raise AppError("config_repo is missing")
+        self.app_settings = app_settings
+        self.monitor_settings = self.app_settings.monitor.get()
+        self.internal_settings = self.app_settings.internal.get()
 
-        ctk.set_appearance_mode("system")
-        ctk.set_default_color_theme("blue")
+        # Apply UI settings from internal config
+        self.title(self.internal_settings.win_title)
+        self.geometry(
+            f"{self.internal_settings.win_width}x{self.internal_settings.win_height}"
+        )
+        self.minsize(
+            self.internal_settings.win_min_width, self.internal_settings.win_min_height
+        )
+        ctk.set_appearance_mode(self.internal_settings.appearance_mode)
+        ctk.set_default_color_theme(self.internal_settings.color_theme)
 
-        self.config_data = load_config()
         self.bot_state = BotState()
         self.bot = None
         self.install_checker = None
 
         self._build_ui()
-        self._log_to_ui("欢迎使用飞书自动点赞助手！")
+        self._log_to_ui("欢迎使用飞书车位助手！")
 
     def _build_ui(self):
-        self.tabview = ctk.CTkTabview(self, width=900, height=700)
+        self.tabview = ctk.CTkTabview(
+            self,
+            width=self.internal_settings.win_width,
+            height=self.internal_settings.win_height,
+        )
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
 
         self.tabview.add("安装")
@@ -57,7 +77,7 @@ class App(ctk.CTk):
             tab,
             on_check_env=self._on_check_env,
             on_open_folder=self._open_data_folder,
-            app_settings=self.config_data,
+            app_settings=self.monitor_settings.model_dump(),
         )
         self.install_tab.set_install_callback(self._run_installation)
 
@@ -73,9 +93,7 @@ class App(ctk.CTk):
     def _build_settings_tab(self):
         tab = self.tabview.tab("设置")
         self.settings_tab = SettingsTab(tab, on_save=self._save_settings)
-        self.settings_tab.load_config(self.config_data.get("monitor", {}))
-        self.settings_tab.load_anti_detect(self.config_data.get("anti_detect", {}))
-        self.settings_tab.load_notification(self.config_data.get("notification", {}))
+        self.settings_tab.load_config(self.monitor_settings.model_dump())
 
     def _log_to_ui(self, msg: str):
         if hasattr(self, "console_tab"):
@@ -129,11 +147,19 @@ class App(ctk.CTk):
 
     def _start_bot(self):
         self._save_settings()
-        self.config_data = load_config()
+        self.monitor_settings = cast(MonitorSettings, self.app_settings.monitor.get())
+        assert self.monitor_settings is not None
+        self.internal_settings = self.app_settings.internal.get()
+
+        config = {
+            "monitor": self.monitor_settings.model_dump(),
+            "internal": self.internal_settings.model_dump(),
+        }
+
         self.bot_state.reset()
         self.bot_state.is_running = True
         self.bot = RPABotCore(
-            self.config_data,
+            config,
             self.bot_state,
             log_callback=lambda msg: self._log_to_ui(msg),
             stop_callback=self._on_bot_stopped,
@@ -175,27 +201,13 @@ class App(ctk.CTk):
 
     def _save_settings(self):
         settings = self.settings_tab.get_config_data()
-        self.config_data["monitor"]["patterns"] = settings["patterns"]
-        self.config_data["monitor"]["reaction_emoji"] = settings["reaction_emoji"]
-        self.config_data["monitor"]["monitored_groups"] = settings["monitored_groups"]
-        self.config_data["monitor"]["check_interval"] = settings["check_interval"]
-        self.config_data["anti_detect"]["min_delay"] = settings["min_delay"]
-        self.config_data["anti_detect"]["max_delay"] = settings["max_delay"]
-        self.config_data["notification"]["desktop_notification"] = settings.get(
-            "desktop_notification", False
-        )
-        self.config_data["notification"]["self_chat_notify"] = settings.get(
-            "self_chat_notify", False
-        )
 
-        save_config(self.config_data)
+        self.monitor_settings.patterns = settings["patterns"]
+        self.monitor_settings.reaction_emoji = settings["reaction_emoji"]
+        self.monitor_settings.check_interval = settings["check_interval"]
+        self.monitor_settings.max_messages_per_check = settings[
+            "max_messages_per_check"
+        ]
+
+        self.app_settings.monitor.save(self.monitor_settings)
         self._log_to_ui("💾 设置已保存")
-
-
-def main():
-    app = App()
-    app.mainloop()
-
-
-if __name__ == "__main__":
-    main()

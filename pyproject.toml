@@ -1,7 +1,7 @@
 [project]
-name = "feishu-auto-liker-gui"
+name = "parkbot"
 version = "0.1.0"
-description = "飞书自动点赞助手"
+description = "飞书车位助手"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -36,6 +36,7 @@ addopts = [
     "--cov-fail-under=80",
     "--timeout=60"
 ]
+pythonpath = ["src"]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
@@ -73,3 +74,8 @@ unresolved-import = "ignore"
 
 [tool.ruff]
 fix = true
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+extraPaths=["src"]
