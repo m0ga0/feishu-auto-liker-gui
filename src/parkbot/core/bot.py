@@ -3,12 +3,13 @@ import os
 import random
 import threading
 import time
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Optional, cast
+from typing import Any, Callable, List, Optional, cast
 
 
-from ..state import BotState
+from ..config.models import MonitorSettings, InternalSettings
+from ..chat.models import FeishuMessage
+from ..dao_impl.chat.dao import IFeishuMessageRepository
 from .constants import FEISHU_CHAT_URL, SELECTORS
 from .matcher import PatternMatcher
 
@@ -20,22 +21,43 @@ class RPABotCore:
 
     def __init__(
         self,
-        config: dict,
-        state: BotState,
+        monitor_settings: MonitorSettings,
+        internal_settings: InternalSettings,
+        message_repo: IFeishuMessageRepository,
         log_callback: Optional[Callable[[str], None]] = None,
         stop_callback: Optional[Callable[[], None]] = None,
     ):
-        self.config = config
-        self.state = state
+        self.monitor_settings = monitor_settings
+        self.internal_settings = internal_settings
+
+        # Runtime statistics (moved from BotState)
+        self.match_count = 0
+        self.reaction_count = 0
+        self.fail_count = 0
+        self.start_time: Optional[float] = None
+
+        # Unified running state (merged from BotState)
+        self._is_running = False
+
+        # Repository for message persistence
+        self.message_repo = message_repo
+
+        # Callbacks
         self.log = log_callback or (lambda msg: None)
         self.stop_callback = stop_callback or (lambda: None)
-        self.matcher = PatternMatcher(
-            config.get("monitor", {}).get("patterns", []), log_callback=self.log
-        )
-        self._running = False
+
+        # Matcher
+        self.matcher = PatternMatcher(self.monitor_settings.patterns)
+
+        # Browser resources
         self._page: object = None
         self._context = None
         self._playwright = None
+
+    @property
+    def is_running(self) -> bool:
+        """Public read-only access to running state."""
+        return self._is_running
 
     async def _setup_browser(self):
         persist_path = str(Path.home() / ".cache" / "ms-playwright")
@@ -47,18 +69,15 @@ class RPABotCore:
 
         self._playwright = await async_playwright().start()
 
-        user_data_dir = self.config.get("browser", {}).get(
-            "user_data_dir", "./feishu_browser_data"
-        )
+        user_data_dir = self.internal_settings.browser_user_data_dir
         Path(user_data_dir).mkdir(parents=True, exist_ok=True)
 
-        width = self.config.get("browser", {}).get("width", 1280)
-        height = self.config.get("browser", {}).get("height", 800)
-        headless = self.config.get("browser", {}).get("headless", False)
+        width = self.internal_settings.browser_win_width
+        height = self.internal_settings.browser_win_height
 
         self._context = await self._playwright.chromium.launch_persistent_context(
             user_data_dir=str(user_data_dir),
-            headless=headless,
+            headless=False,
             viewport={"width": width, "height": height},
             locale="zh-CN",
             user_agent=(
@@ -82,11 +101,11 @@ class RPABotCore:
             error_msg = str(e)
             if "Target page, context or browser has been closed" in error_msg:
                 self.log("⚠️ 浏览器已关闭")
-                self._running = False
+                self._is_running = False
                 return
             elif "net::ERR_ABORTED" in error_msg:
                 self.log("⚠️ 页面导航中断")
-                self._running = False
+                self._is_running = False
                 return
             raise
 
@@ -100,11 +119,11 @@ class RPABotCore:
         except Exception as e:
             error_msg = str(e)
             if "Target page, context or browser has been closed" in error_msg:
-                self.log("⚠️ 浏览器已���闭")
-                self._running = False
+                self.log("⚠️ 浏览器已关闭")
+                self._is_running = False
             elif "Target closed" in error_msg:
                 self.log("⚠️ 页面已关闭")
-                self._running = False
+                self._is_running = False
             else:
                 self.log("⚠️ 登录超时，但仍可继续操作")
 
@@ -121,20 +140,21 @@ class RPABotCore:
             return True
         except Exception as e:
             error_msg = str(e)
+            print(error_msg)
             if "Target page, context or browser has been closed" in error_msg:
                 self.log("⚠️ 浏览器已关闭，停止监控")
-                self._running = False
+                self._is_running = False
             elif "Target closed" in error_msg:
                 self.log("⚠️ 页面已关闭，停止监控")
-                self._running = False
+                self._is_running = False
             elif "net::ERR_ABORTED" in error_msg:
                 self.log("⚠️ 页面导航中断，停止监控")
-                self._running = False
+                self._is_running = False
             return False
 
     async def _get_messages(self, group_name: str = "") -> list[dict]:
         messages = []
-        max_msgs = self.config.get("monitor", {}).get("max_messages_per_check", 10)
+        max_msgs = self.monitor_settings.max_messages_per_check
 
         try:
             wrappers = await cast(Any, self._page).query_selector_all(
@@ -146,8 +166,6 @@ class RPABotCore:
             for wrapper in reversed(wrappers[-max_msgs:]):
                 try:
                     msg_id = await self._extract_message_id(wrapper, "")
-                    if self.state.is_seen(group_name, msg_id):
-                        continue
 
                     text_el = await wrapper.query_selector(SELECTORS["message_text"])
                     if not text_el:
@@ -169,10 +187,10 @@ class RPABotCore:
             error_msg = str(e)
             if "Target page, context or browser has been closed" in error_msg:
                 self.log("⚠️ 浏览器已关闭，停止监控")
-                self._running = False
+                self._is_running = False
             elif "Target closed" in error_msg:
                 self.log("⚠️ 页面已关闭，停止监控")
-                self._running = False
+                self._is_running = False
             else:
                 self.log(f"异常：{error_msg}")
 
@@ -261,90 +279,208 @@ class RPABotCore:
         await asyncio.sleep(random.uniform(mn, mx))
 
     async def _run_loop(self):
-        self.log("DEBUG: _run_loop started")
-        self._running = True
-        self.state.is_running = True
-        self.state.start_time = time.time()
-        self.log("🚀 开始监控群消息...")
+        """Main processing loop with batch operations."""
+        self._is_running = True
+        self.start_time = time.time()
 
-        check_interval = self.config.get("monitor", {}).get("check_interval", 2)
+        check_interval = self.monitor_settings.check_interval
         current_group = "_default"
 
-        while self._running:
-            self.log(f"DEBUG: loop, running={self._running}")
+        while self._is_running:
             try:
+                # Get messages from browser
                 messages = await self._get_messages(current_group)
-                self.log(f"DEBUG: got messages: {messages}")
-                current_time = datetime.now().strftime("%H:%M:%S")
 
-                for msg in messages:
-                    self.log(f"DEBUG: Processing msg {msg['id']}")
-                    if not self._running:
-                        break
+                if not messages:
+                    await asyncio.sleep(check_interval)
+                    continue
 
-                    if self.state.is_seen(current_group, msg["id"]):
-                        self.log(f"DEBUG: msg {msg['id']} already seen")
-                        continue
+                # Extract message IDs for batch query
+                message_ids = [msg["id"] for msg in messages]
 
-                    self.state.mark_seen(current_group, msg["id"])
-                    self.log(f"DEBUG: marked seen {msg['id']}")
-                    msg_id = msg["id"]
-                    msg_text = msg["text"]
+                # BATCH QUERY: Get existing messages from storage
+                existing_messages = self.message_repo.get_by_ids(message_ids)
 
-                    is_match = self.matcher.matches(msg_text)
+                # Classify messages into 3 groups
+                to_process = []  # Scenario 1: Not in storage
+                to_skip_checked = []  # Scenario 3: Checked, not matched
+                to_skip_reacted = []  # Scenario 4: Already reacted
 
-                    if is_match:
-                        if self.state.is_reacted(current_group, msg_id):
-                            self.log(
-                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 已点赞"
-                            )
-                            continue
-                        self.state.match_count += 1
-                        success = await self._react(msg["element"])
-                        if success:
-                            self.state.reaction_count += 1
-                            self.state.mark_reacted(current_group, msg_id)
-                            self.log(
-                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞成功"
-                            )
-                        else:
-                            self.state.fail_count += 1
-                            self.log(
-                                f"[{current_time}] msg_id={msg_id} | {msg_text} | 点赞失败"
-                            )
-                        await self._delay()
-                    else:
-                        self.log(
-                            f"[{current_time}] msg_id={msg_id} | {msg_text} | 匹配失败"
-                        )
+                for msg_data in messages:
+                    msg_id = msg_data["id"]
+                    existing = existing_messages.get(msg_id)
 
-                if messages:
-                    new_ids = [m["id"] for m in messages]
-                    self.state.update_last_checked_ids(current_group, new_ids)
+                    if existing is None:
+                        # Scenario 1: Never seen
+                        to_process.append(msg_data)
+                    elif existing.is_reacted is None:
+                        # Scenario 2: Seen but not processed (app killed)
+                        to_process.append(msg_data)
+                    elif existing.is_reacted is False:
+                        # Scenario 3: Checked, no match
+                        to_skip_checked.append(msg_id)
+                    elif existing.is_reacted is True:
+                        # Scenario 4: Already reacted
+                        to_skip_reacted.append(msg_id)
+
+                # Log skipped messages
+                # if to_skip_checked:
+                #    self.log(f"Skipping {len(to_skip_checked)} checked non-matching messages")
+                # if to_skip_reacted:
+                #    self.log(f"Skipping {len(to_skip_reacted)} already-reacted messages")
+
+                # Process messages that need action
+                if to_process:
+                    await self._process_message_batch(to_process, current_group)
 
                 await asyncio.sleep(check_interval)
 
             except Exception as e:
                 self.log(f"⚠️ 监控异常: {e}")
-                if not self._running:
+                if not self._is_running:
                     break
+                # Handle specific error types
                 error_msg = str(e)
                 if "Target page, context or browser has been closed" in error_msg:
                     self.log("⚠️ 浏览器已关闭，停止监控")
-                    self._running = False
+                    self._is_running = False
                     break
                 elif "Target closed" in error_msg:
                     self.log("⚠️ 页面已关闭，停止监控")
-                    self._running = False
+                    self._is_running = False
                     break
                 elif "net::ERR_ABORTED" in error_msg:
                     self.log("⚠️ 页面导航中断，停止监控")
-                    self._running = False
+                    self._is_running = False
                     break
                 await asyncio.sleep(check_interval)
 
-        self.state.is_running = False
+        self._is_running = False
         self.stop_callback()
+
+    async def _process_message_batch(
+        self, messages: List[dict], group_name: str
+    ) -> None:
+        """
+        Process a batch of messages with pattern matching and reactions.
+
+        Steps:
+        1. Match all messages against patterns
+        2. Filter out already-reacted messages
+        3. Execute batch reactions
+        4. Save results to storage
+        """
+        matched_messages = []
+        no_match_messages = []
+
+        # Step 1: Pattern matching for all messages
+        for msg_data in messages:
+            msg_id = msg_data["id"]
+            msg_text = msg_data["text"]
+
+            is_match = self.matcher.matches(msg_text)
+
+            if is_match:
+                self.match_count += 1
+                matched_messages.append(msg_data)
+            else:
+                no_match_messages.append(msg_data)
+            self.log(f"[{msg_id}]:{msg_text} -> {is_match}")
+
+        # Step 2: Check which matched messages were already reacted
+        if matched_messages:
+            matched_ids = [m["id"] for m in matched_messages]
+            reacted_status = self.message_repo.exists_batch(matched_ids)
+
+            to_react = []
+            already_reacted = []
+
+            for msg_data in matched_messages:
+                msg_id = msg_data["id"]
+                if reacted_status.get(msg_id, False):
+                    # Check if actually reacted (not just exists)
+                    existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+                    if existing and existing.is_reacted is True:
+                        already_reacted.append(msg_id)
+                    else:
+                        to_react.append(msg_data)
+                else:
+                    to_react.append(msg_data)
+
+            # if already_reacted:
+            #    self.log(f"Skipping {len(already_reacted)} already-reacted messages")
+        else:
+            to_react = []
+
+        # Step 3: Execute batch reactions
+        reaction_results = []
+        if to_react:
+            self.log(f"Reacting to {len(to_react)} matched messages...")
+            for msg_data in to_react:
+                msg_id = msg_data["id"]
+                try:
+                    success = await self._react(msg_data["element"])
+                    reaction_results.append((msg_data, success))
+                except Exception as e:
+                    self.log(f"Reaction failed for msg {msg_id}: {e}")
+                    reaction_results.append((msg_data, False))
+
+        # Step 4: Prepare messages for saving
+        messages_to_save = []
+
+        # Add matched messages with reaction results
+        for msg_data, success in reaction_results:
+            msg_id = msg_data["id"]
+            msg_text = msg_data["text"]
+
+            # Get existing or create new
+            existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+            if existing:
+                msg = existing
+            else:
+                msg = FeishuMessage(
+                    id=msg_id,
+                    group_name=group_name,
+                    text=msg_text,
+                )
+
+            # Update state using unified mark_processed method
+            if success:
+                msg.mark_processed(is_reacted=True, target_pattern="matched")
+                self.reaction_count += 1
+            else:
+                msg.mark_processed(is_reacted=False, target_pattern="matched")
+                self.fail_count += 1
+
+            messages_to_save.append(msg)
+
+        # Add non-matching messages (mark as checked)
+        for msg_data in no_match_messages:
+            msg_id = msg_data["id"]
+            msg_text = msg_data["text"]
+
+            existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+            if existing:
+                msg = existing
+            else:
+                msg = FeishuMessage(
+                    id=msg_id,
+                    group_name=group_name,
+                    text=msg_text,
+                )
+
+            # Mark as checked but no match - stores the pattern that was checked
+            msg.mark_processed(is_reacted=False, target_pattern="checked")
+            messages_to_save.append(msg)
+
+        # BATCH SAVE: Save all messages at once
+        if messages_to_save:
+            try:
+                self.message_repo.save_batch(messages_to_save)
+                self.log(f"Saved {len(messages_to_save)} message states")
+            except Exception as e:
+                msg_ids = [m.id for m in messages_to_save]
+                self.log(f"ERROR: Failed to save messages {msg_ids}: {e}")
 
     def start(self):
         """Start the bot in a background thread."""
@@ -366,7 +502,7 @@ class RPABotCore:
         self._thread.start()
 
     def stop(self):
-        self._running = False
+        self._is_running = False
 
     async def _cleanup(self):
         try:

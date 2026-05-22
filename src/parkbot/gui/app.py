@@ -1,6 +1,7 @@
 # python libs
 from typing import cast
 import threading
+import time
 
 # 3rd-party libs
 import customtkinter as ctk
@@ -10,21 +11,25 @@ from ..core.exceptions import AppError
 from ..config.models import MonitorSettings
 from ..core import RPABotCore
 from ..installer import EnvChecker
-from ..state import BotState
+from ..dao_impl.chat.dao import IFeishuMessageRepository
 
 # package modules
 from .tabs import ConsoleTab, InstallTab, SettingsTab
 
 
 class App(ctk.CTk):
-    def __init__(self, app_settings):
+    def __init__(self, app_settings_repo, message_repo: IFeishuMessageRepository):
         super().__init__()
 
-        if app_settings is None:
-            raise AppError("config_repo is missing")
-        self.app_settings = app_settings
-        self.monitor_settings = self.app_settings.monitor.get()
-        self.internal_settings = self.app_settings.internal.get()
+        if app_settings_repo is None:
+            raise AppError("app_settings_repo is missing")
+        if message_repo is None:
+            raise AppError("message_repo is missing")
+
+        self.app_settings_repo = app_settings_repo
+        self.message_repo = message_repo
+        self.monitor_settings = self.app_settings_repo.monitor.get()
+        self.internal_settings = self.app_settings_repo.internal.get()
 
         # Apply UI settings from internal config
         self.title(self.internal_settings.win_title)
@@ -37,8 +42,8 @@ class App(ctk.CTk):
         ctk.set_appearance_mode(self.internal_settings.appearance_mode)
         ctk.set_default_color_theme(self.internal_settings.color_theme)
 
-        self.bot_state = BotState()
         self.bot = None
+        self.bot_start_time: float = 0
         self.install_checker = None
 
         self._build_ui()
@@ -62,14 +67,28 @@ class App(ctk.CTk):
         self._start_stats_loop()
 
     def _start_stats_loop(self):
-        if hasattr(self, "bot_state") and self.bot_state.is_running:
+        if hasattr(self, "bot") and self.bot and self.bot.is_running:
+            uptime = self._calculate_uptime()
             self.console_tab.update_stats(
-                self.bot_state.match_count,
-                self.bot_state.reaction_count,
-                self.bot_state.fail_count,
-                self.bot_state.uptime,
+                self.bot.match_count,
+                self.bot.reaction_count,
+                self.bot.fail_count,
+                uptime,
             )
             self.after(1000, self._start_stats_loop)
+
+    def _calculate_uptime(self) -> str:
+        """Calculate uptime from bot start time."""
+        if not self.bot or not self.bot.start_time:
+            return "0秒"
+        total = int(time.time() - self.bot.start_time)
+        h, rem = divmod(total, 3600)
+        m, s = divmod(rem, 60)
+        if h > 0:
+            return f"{h}小时{m}分{s}秒"
+        elif m > 0:
+            return f"{m}分{s}秒"
+        return f"{s}秒"
 
     def _build_install_tab(self):
         tab = self.tabview.tab("安装")
@@ -147,20 +166,16 @@ class App(ctk.CTk):
 
     def _start_bot(self):
         self._save_settings()
-        self.monitor_settings = cast(MonitorSettings, self.app_settings.monitor.get())
+        self.monitor_settings = cast(
+            MonitorSettings, self.app_settings_repo.monitor.get()
+        )
         assert self.monitor_settings is not None
-        self.internal_settings = self.app_settings.internal.get()
+        self.internal_settings = self.app_settings_repo.internal.get()
 
-        config = {
-            "monitor": self.monitor_settings.model_dump(),
-            "internal": self.internal_settings.model_dump(),
-        }
-
-        self.bot_state.reset()
-        self.bot_state.is_running = True
         self.bot = RPABotCore(
-            config,
-            self.bot_state,
+            monitor_settings=self.monitor_settings,
+            internal_settings=self.internal_settings,
+            message_repo=self.message_repo,
             log_callback=lambda msg: self._log_to_ui(msg),
             stop_callback=self._on_bot_stopped,
         )
@@ -170,21 +185,18 @@ class App(ctk.CTk):
 
     def _on_bot_stopped(self):
         self._log_to_ui("⏹ 监控已停止")
-        if hasattr(self, "bot_state") and self.bot_state:
+        if hasattr(self, "bot") and self.bot:
             self.after(0, self._log_final_stats)
-            self.after(0, self._do_reset)
         self.after(0, self.console_tab.on_bot_stopped)
 
     def _log_final_stats(self):
+        uptime = self._calculate_uptime()
         self._log_to_ui(
-            f"📊 本次运行统计 - 匹配: {self.bot_state.match_count} | "
-            f"点赞: {self.bot_state.reaction_count} | "
-            f"失败: {self.bot_state.fail_count} | "
-            f"时长: {self.bot_state.uptime}"
+            f"📊 本次运行统计 - 匹配: {self.bot.match_count} | "
+            f"点赞: {self.bot.reaction_count} | "
+            f"失败: {self.bot.fail_count} | "
+            f"时长: {uptime}"
         )
-
-    def _do_reset(self):
-        self.bot_state.reset()
 
     def _stop_bot(self):
         if self.bot:
@@ -195,7 +207,6 @@ class App(ctk.CTk):
             self.bot = None
 
     def _reset_stats(self):
-        self.bot_state.reset()
         self.console_tab.reset()
         self._log_to_ui("🔄 统计已重置")
 
@@ -209,5 +220,5 @@ class App(ctk.CTk):
             "max_messages_per_check"
         ]
 
-        self.app_settings.monitor.save(self.monitor_settings)
+        self.app_settings_repo.monitor.save(self.monitor_settings)
         self._log_to_ui("💾 设置已保存")

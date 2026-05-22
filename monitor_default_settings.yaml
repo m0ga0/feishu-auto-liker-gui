@@ -1,7 +1,6 @@
 # Feishu Auto-Liker GUI Monitor Default Settings
 patterns:
-  - 打卡
-  - 签到
+  - "re:.*(出|整出).*(车位|停车位|首赞)*.*"
 reaction_emoji: 赞
 check_interval: 1.0
 max_messages_per_check: 3

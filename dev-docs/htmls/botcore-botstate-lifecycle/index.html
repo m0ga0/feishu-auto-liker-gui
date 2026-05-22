@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPABotCore & BotState Lifecycle Documentation</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #1a1a2e;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        h2 {
+            color: #16213e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #0f3460;
+            padding-bottom: 10px;
+        }
+
+        h3 {
+            color: #1a1a2e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+
+        h4 {
+            color: #333;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #444;
+        }
+
+        .intro {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+        }
+
+        .intro p {
+            color: rgba(255,255,255,0.9);
+            font-size: 1.1em;
+        }
+
+        .component-box {
+            background: #f8f9fa;
+            border-left: 4px solid #0f3460;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .component-box h4 {
+            color: #0f3460;
+            margin-top: 0;
+        }
+
+        .method-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .method-item {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .method-item code {
+            background: #f4f4f4;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Consolas', monospace;
+            color: #d63384;
+            font-size: 0.9em;
+        }
+
+        .method-item p {
+            margin: 8px 0 0 0;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .highlight {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .highlight strong {
+            color: #856404;
+        }
+
+        .data-flow {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .data-flow h4 {
+            color: #1565c0;
+            margin-top: 0;
+        }
+
+        .lifecycle-phase {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            border: 2px solid #d0d8e0;
+        }
+
+        .lifecycle-phase h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+            color: #d63384;
+        }
+
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+        }
+
+        .state-persistence {
+            background: #e8f5e9;
+            border: 2px solid #4caf50;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .state-persistence h4 {
+            color: #2e7d32;
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #0f3460;
+            color: white;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 RPABotCore & BotState Lifecycle</h1>
+
+        <div class="intro">
+            <p>This documentation explains the relationship between <strong>RPABotCore</strong> (the RPA automation engine) and <strong>BotState</strong> (the state management system). Understanding their lifecycle and interactions is crucial for maintaining and extending the ParkBot system.</p>
+        </div>
+
+        <h2>📋 Overview</h2>
+
+        <div class="component-box">
+            <h4>🏃 RPABotCore</h4>
+            <p>The RPA (Robotic Process Automation) engine that:</p>
+            <ul style="margin: 10px 0 10px 20px;">
+                <li>Controls browser automation via Playwright</li>
+                <li>Runs message processing loop in a background thread</li>
+                <li>Matches messages against patterns</li>
+                <li>Executes reactions (likes) on matched messages</li>
+                <li>Maintains <code>_running</code> flag for loop control</li>
+            </ul>
+        </div>
+
+        <div class="component-box">
+            <h4>💾 BotState</h4>
+            <p>The state management singleton that:</p>
+            <ul style="margin: 10px 0 10px 20px;">
+                <li>Tracks seen message IDs per group (prevents reprocessing)</li>
+                <li>Tracks reacted message IDs per group (prevents duplicate reactions)</li>
+                <li>Maintains runtime statistics (match_count, reaction_count, fail_count)</li>
+                <li>Persists state to <code>state.json</code> automatically</li>
+                <li>Provides thread-safe operations with locks</li>
+                <li>Calculates uptime from start_time</li>
+            </ul>
+        </div>
+
+        <h2>🔄 Lifecycle Phases</h2>
+
+        <div class="lifecycle-phase">
+            <h3>Phase 1: Initialization</h3>
+            <p>When the App starts, both components are initialized:</p>
+
+            <div class="mermaid">
+sequenceDiagram
+    participant App as App (GUI)
+    participant RPA as RPABotCore
+    participant State as BotState
+    participant File as state.json
+
+    App->>State: new BotState()
+    State->>File: _load_state() (if exists)
+    File-->>State: Restore seen_ids, reacted_ids
+    State-->>App: BotState instance
+
+    App->>RPA: new RPABotCore(monitor_settings, internal_settings, state)
+    RPA->>RPA: Create PatternMatcher with patterns
+    RPA->>RPA: Initialize _running = False
+    RPA-->>App: RPABotCore instance
+            </div>
+
+            <div class="highlight">
+                <strong>Key Points:</strong>
+                <ul style="margin: 10px 0 10px 20px;">
+                    <li>BotState loads persisted data from <code>state.json</code> on initialization</li>
+                    <li>RPABotCore receives BotState as a dependency (dependency injection pattern)</li>
+                    <li>RPABotCore stores reference to BotState in <code>self.state</code></li>
+                    <li>PatternMatcher is created with patterns from MonitorSettings</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lifecycle-phase">
+            <h3>Phase 2: Bot Start</h3>
+            <p>When user clicks "Start", the bot begins execution:</p>
+
+            <div class="mermaid">
+sequenceDiagram
+    participant User as User
+    participant App as App
+    participant RPA as RPABotCore
+    participant State as BotState
+    participant Thread as Background Thread
+
+    User->>App: Click Start Button
+    App->>State: reset()
+    Note over State: Clear match_count, reaction_count,<br/>fail_count, start_time, recent_logs
+    App->>State: is_running = True
+    App->>State: start_time = time.time()
+    App->>RPA: start()
+    RPA->>RPA: _running = True
+    RPA->>Thread: Create new Thread(target=run_async)
+    Thread->>Thread: run_async()
+    Note over Thread: Browser setup & navigation<br/>happen in background
+            </div>
+
+            <div class="data-flow">
+                <h4>Data Flow at Start:</h4>
+                <ol style="margin: 10px 0 10px 20px;">
+                    <li>App calls <code>BotState.reset()</code> to clear runtime statistics</li>
+                    <li>App sets <code>BotState.is_running = True</code></li>
+                    <li>App sets <code>BotState.start_time</code> for uptime calculation</li>
+                    <li>App calls <code>RPABotCore.start()</code> which spawns background thread</li>
+                    <li>RPABotCore sets <code>_running = True</code> (internal loop flag)</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="lifecycle-phase">
+            <h3>Phase 3: Message Processing Loop</h3>
+            <p>The core interaction pattern during message processing:</p>
+
+            <div class="mermaid">
+sequenceDiagram
+    participant Thread as Background Thread
+    participant RPA as RPABotCore
+    participant State as BotState
+    participant File as state.json
+    participant Page as Feishu Page
+
+    loop While _running = True
+        Thread->>RPA: _get_messages(group)
+        RPA->>Page: Query message elements
+        Page-->>RPA: Message wrappers
+
+        loop For each message
+            RPA->>State: is_seen(group, msg_id)
+            State-->>RPA: False (not seen)
+
+            RPA->>State: mark_seen(group, msg_id)
+            State->>State: Add to seen_ids set
+            State->>File: _save_state() (persist)
+
+            RPA->>RPA: matcher.matches(text)
+
+            alt Message matches pattern
+                RPA->>State: is_reacted(group, msg_id)
+                State-->>RPA: False (not reacted)
+
+                RPA->>State: match_count += 1
+                RPA->>RPA: _react(element)
+
+                alt Reaction success
+                    RPA->>State: reaction_count += 1
+                    RPA->>State: mark_reacted(group, msg_id)
+                    State->>State: Add to reacted_ids set
+                    State->>File: _save_state() (persist)
+                else Reaction failed
+                    RPA->>State: fail_count += 1
+                end
+            end
+        end
+
+        RPA->>State: update_last_checked_ids(group, ids)
+        State->>File: _save_state() (persist)
+
+        Thread->>Thread: asyncio.sleep(check_interval)
+    end
+            </div>
+
+            <div class="highlight">
+                <strong>Critical Interaction Pattern:</strong>
+                <ul style="margin: 10px 0 10px 20px;">
+                    <li><strong>Check before processing:</strong> Always call <code>is_seen()</code> first to avoid duplicate processing</li>
+                    <li><strong>Mark immediately:</strong> Call <code>mark_seen()</code> right after to prevent race conditions</li>
+                    <li><strong>Persist on change:</strong> Every state change triggers <code>_save_state()</code> to disk</li>
+                    <li><strong>Check before react:</strong> Call <code>is_reacted()</code> to avoid duplicate reactions</li>
+                    <li><strong>Thread-safe:</strong> All BotState operations use <code>self._lock</code> for thread safety</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="lifecycle-phase">
+            <h3>Phase 4: Bot Stop</h3>
+            <p>When user clicks "Stop" or an error occurs:</p>
+
+            <div class="mermaid">
+sequenceDiagram
+    participant User as User
+    participant App as App
+    participant RPA as RPABotCore
+    participant State as BotState
+    participant Thread as Background Thread
+
+    alt User Stops Bot
+        User->>App: Click Stop Button
+        App->>RPA: stop()
+        RPA->>RPA: _running = False
+    else Browser Closed/Error
+        Thread->>RPA: Browser exception
+        RPA->>RPA: _running = False
+        RPA->>RPA: log("浏览器已关闭")
+    end
+
+    Thread->>RPA: Loop exits (_running = False)
+    RPA->>State: is_running = False
+    RPA->>RPA: stop_callback()
+    RPA->>RPA: _cleanup()
+    Note over RPA: Close browser context & playwright
+            </div>
+
+            <div class="data-flow">
+                <h4>Stop Sequence:</h4>
+                <ol style="margin: 10px 0 10px 20px;">
+                    <li>User calls <code>RPABotCore.stop()</code> or exception sets <code>_running = False</code></li>
+                    <li>Background loop detects <code>_running = False</code> and exits</li>
+                    <li>RPABotCore sets <code>BotState.is_running = False</code></li>
+                    <li>RPABotCore calls <code>stop_callback</code> (notifies UI)</li>
+                    <li>RPABotCore calls <code>_cleanup()</code> to close browser resources</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="lifecycle-phase">
+            <h3>Phase 5: Statistics Access</h3>
+            <p>UI queries runtime statistics (runs on main thread):</p>
+
+            <div class="mermaid">
+sequenceDiagram
+    participant UI as UI Thread
+    participant App as App
+    participant State as BotState
+
+    loop Stats Update Timer (every 1s)
+        UI->>App: update_stats()
+        App->>State: match_count
+        State-->>App: 42
+        App->>State: reaction_count
+        State-->>App: 38
+        App->>State: fail_count
+        State-->>App: 4
+        App->>State: uptime (calculated from start_time)
+        State-->>App: "5分32秒"
+        App->>UI: Display updated stats
+    end
+            </div>
+        </div>
+
+        <h2>📊 State Attributes Reference</h2>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Attribute</th>
+                    <th>Type</th>
+                    <th>Persisted</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>_group_states[group]["seen_ids"]</code></td>
+                    <td>Set[str]</td>
+                    <td>✅ Yes</td>
+                    <td>Message IDs that have been processed</td>
+                </tr>
+                <tr>
+                    <td><code>_group_states[group]["reacted_ids"]</code></td>
+                    <td>Set[str]</td>
+                    <td>✅ Yes</td>
+                    <td>Message IDs that have been reacted to</td>
+                </tr>
+                <tr>
+                    <td><code>_group_states[group]["last_checked_ids"]</code></td>
+                    <td>List[str]</td>
+                    <td>✅ Yes</td>
+                    <td>IDs from the most recent check</td>
+                </tr>
+                <tr>
+                    <td><code>match_count</code></td>
+                    <td>int</td>
+                    <td>❌ No</td>
+                    <td>Runtime: Messages that matched patterns</td>
+                </tr>
+                <tr>
+                    <td><code>reaction_count</code></td>
+                    <td>int</td>
+                    <td>❌ No</td>
+                    <td>Runtime: Successful reactions</td>
+                </tr>
+                <tr>
+                    <td><code>fail_count</code></td>
+                    <td>int</td>
+                    <td>❌ No</td>
+                    <td>Runtime: Failed reactions</td>
+                </tr>
+                <tr>
+                    <td><code>start_time</code></td>
+                    <td>float</td>
+                    <td>❌ No</td>
+                    <td>Runtime: Timestamp when bot started</td>
+                </tr>
+                <tr>
+                    <td><code>is_running</code></td>
+                    <td>bool</td>
+                    <td>❌ No</td>
+                    <td>Runtime: Current bot state</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="state-persistence">
+            <h4>📝 Persistence Strategy</h4>
+            <p><strong>Persisted to state.json:</strong> <code>seen_ids</code>, <code>reacted_ids</code>, <code>last_checked_ids</code>, <code>last_check_time</code></p>
+            <p><strong>Runtime only:</strong> Statistics counters (<code>match_count</code>, <code>reaction_count</code>, <code>fail_count</code>), <code>start_time</code>, <code>is_running</code></p>
+            <p><strong>Why this split?</strong> Persisted data survives restarts (prevent duplicate processing), while runtime statistics are reset each session.</p>
+        </div>
+
+        <h2>🔧 Key Methods Reference</h2>
+
+        <h3>BotState Methods</h3>
+        <div class="method-list">
+            <div class="method-item">
+                <code>is_seen(group, msg_id) → bool</code>
+                <p>Check if message was already processed</p>
+            </div>
+            <div class="method-item">
+                <code>mark_seen(group, msg_id)</code>
+                <p>Mark message as processed & persist</p>
+            </div>
+            <div class="method-item">
+                <code>is_reacted(group, msg_id) → bool</code>
+                <p>Check if already reacted to message</p>
+            </div>
+            <div class="method-item">
+                <code>mark_reacted(group, msg_id)</code>
+                <p>Mark as reacted & persist</p>
+            </div>
+            <div class="method-item">
+                <code>update_last_checked_ids(group, ids)</code>
+                <p>Update recent check IDs & persist</p>
+            </div>
+            <div class="method-item">
+                <code>reset()</code>
+                <p>Clear all runtime statistics (not persisted data)</p>
+            </div>
+        </div>
+
+        <h3>RPABotCore State Interactions</h3>
+        <div class="method-list">
+            <div class="method-item">
+                <code>_run_loop()</code>
+                <p>Main loop: Checks state.is_seen, calls state.mark_seen, updates counters</p>
+            </div>
+            <div class="method-item">
+                <code>_get_messages(group)</code>
+                <p>Filters out seen messages via state.is_seen()</p>
+            </div>
+            <div class="method-item">
+                <code>_react(element)</code>
+                <p>On success: increments reaction_count, calls mark_reacted</p>
+            </div>
+        </div>
+
+        <h2>⚠️ Thread Safety Considerations</h2>
+
+        <div class="highlight">
+            <strong>Important:</strong> RPABotCore runs in a background thread, while UI queries BotState from the main thread.
+            <br><br>
+            BotState uses <code>threading.Lock()</code> internally to ensure:
+            <ul style="margin: 10px 0 10px 20px;">
+                <li>Concurrent reads/writes to group states are safe</li>
+                <li>File persistence doesn't corrupt state.json</li>
+                <li>Statistics counters remain consistent</li>
+            </ul>
+        </div>
+
+        <h2>🎯 Common Use Cases</h2>
+
+        <h4>Use Case 1: First-Time Message Processing</h4>
+        <pre><code># Message arrives for the first time
+if not state.is_seen(group, msg_id):     # Returns False
+    state.mark_seen(group, msg_id)        # Persist to disk
+    # Process message...
+    if matcher.matches(text):
+        state.match_count += 1
+        if not state.is_reacted(group, msg_id):
+            success = await _react(element)
+            if success:
+                state.reaction_count += 1
+                state.mark_reacted(group, msg_id)  # Persist to disk</code></pre>
+
+        <h4>Use Case 2: Duplicate Message (Already Seen)</h4>
+        <pre><code># Same message appears again
+if not state.is_seen(group, msg_id):     # Returns True (already seen)
+    # Skip entirely - no processing</code></pre>
+
+        <h4>Use Case 3: Message Match But Already Reacted</h4>
+        <pre><code># Message matches pattern but was reacted in previous run
+if matcher.matches(text):
+    if state.is_reacted(group, msg_id):  # Returns True
+        log("已点赞")  # Skip reaction
+        continue</code></pre>
+
+        <h2>📁 File Structure</h2>
+
+        <pre><code>state.json
+{
+  "groups": {
+    "_default": {
+      "seen_ids": ["msg_123", "msg_124"],
+      "reacted_ids": ["msg_123"],
+      "last_checked_ids": ["msg_124", "msg_125"],
+      "last_check_time": 1703001600.0
+    }
+  }
+}</code></pre>
+
+        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; color: #666; font-size: 0.9em;">
+            <p>Generated for ParkBot Project • Refactor State Model Branch</p>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35,
+                mirrorActors: true,
+                bottomMarginAdj: 1,
+                useMaxWidth: true,
+                rightAngles: false,
+                showSequenceNumbers: false
+            }
+        });
+    </script>
+</body>
+</html>

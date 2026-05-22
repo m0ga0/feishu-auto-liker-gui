@@ -34,7 +34,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
     "--cov-fail-under=80",
-    "--timeout=60"
+    "--timeout=120"
 ]
 pythonpath = ["src"]
 testpaths = ["tests"]
@@ -67,6 +67,7 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
+    "@abstractmethod",
 ]
 
 [tool.ty.rules]

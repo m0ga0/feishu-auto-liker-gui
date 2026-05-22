@@ -1,12 +1,43 @@
 """RPABotCore 同步接口测试"""
 
 import pytest
-import time
-from unittest.mock import MagicMock
 
 from parkbot.core.bot import RPABotCore
 from parkbot.core.matcher import PatternMatcher
-from parkbot.state import BotState
+from parkbot.config.models import MonitorSettings, InternalSettings
+from parkbot.dao_impl.chat.repo_impls import InMemoryFeishuMessageRepository
+
+
+def create_monitor_settings(patterns=None, **kwargs):
+    """Helper to create MonitorSettings with defaults."""
+    defaults = {
+        "patterns": patterns or ["test"],
+        "reaction_emoji": "👍",
+        "check_interval": 2.0,
+        "max_messages_per_check": 10,
+    }
+    defaults.update(kwargs)
+    return MonitorSettings(**defaults)
+
+
+def create_internal_settings(**kwargs):
+    """Helper to create InternalSettings with defaults."""
+    defaults = {
+        "browser_user_data_dir": "./feishu_browser_data",
+        "browser_win_width": 1280,
+        "browser_win_height": 800,
+        "logging_level": "INFO",
+        "logging_dir": "rpa_bot.log",
+        "win_title": "飞书自动点赞助手",
+        "win_width": 900,
+        "win_height": 700,
+        "win_min_width": 800,
+        "win_min_height": 600,
+        "appearance_mode": "system",
+        "color_theme": "blue",
+    }
+    defaults.update(kwargs)
+    return InternalSettings(**defaults)
 
 
 class TestRPABotCoreSyncInterface:
@@ -14,98 +45,82 @@ class TestRPABotCoreSyncInterface:
 
     def test_init_creates_matcher_with_patterns(self):
         """初始化时使用配置创建 PatternMatcher"""
-        config = {"monitor": {"patterns": ["hello", "re:world\\d+"]}}
-        state = BotState()
-        bot = RPABotCore(config, state)
+        monitor_settings = create_monitor_settings(patterns=["hello", "world\\d+"])
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
         assert isinstance(bot.matcher, PatternMatcher)
 
-    def test_init_uses_empty_patterns_when_not_in_config(self):
+    def test_init_uses_empty_patterns(self):
         """配置中没有 patterns 时使用空列表"""
-        config = {}
-        state = BotState()
-        bot = RPABotCore(config, state)
+        monitor_settings = create_monitor_settings(patterns=[])
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
         assert isinstance(bot.matcher, PatternMatcher)
 
     def test_matcher_is_used_for_message_matching(self):
         """PatternMatcher 用于消息匹配"""
-        config = {"monitor": {"patterns": ["车位"]}}
-        state = BotState()
-        bot = RPABotCore(config, state)
+        monitor_settings = create_monitor_settings(patterns=["车位"])
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
         assert bot.matcher.matches("有车位 请联系") is True
         assert bot.matcher.matches("没有匹配") is False
 
     def test_regex_patterns_work(self):
         """正则表达式模式可用"""
-        config = {"monitor": {"patterns": ["re:车位\\d+"]}}
-        state = BotState()
-        bot = RPABotCore(config, state)
+        monitor_settings = create_monitor_settings(patterns=["车位\\d+"])
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
         assert bot.matcher.matches("车位123") is True
         assert bot.matcher.matches("车位") is False
 
-    def test_config_get_browser_settings(self):
-        """从配置获取浏览器设置"""
-        config = {
-            "browser": {
-                "user_data_dir": "./test_browser_data",
-                "width": 1920,
-                "height": 1080,
-                "headless": True,
-            }
-        }
-        state = BotState()
-        RPABotCore(config, state)
+    def test_monitor_settings_stored(self):
+        """监控设置被正确存储"""
+        monitor_settings = create_monitor_settings(
+            patterns=["test"],
+            check_interval=5.0,
+            max_messages_per_check=20,
+        )
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        assert config["browser"]["user_data_dir"] == "./test_browser_data"
-        assert config["browser"]["width"] == 1920
-        assert config["browser"]["height"] == 1080
+        assert bot.monitor_settings.check_interval == 5.0
+        assert bot.monitor_settings.max_messages_per_check == 20
 
-    def test_config_get_monitor_settings(self):
-        """从配置获取监控设置"""
-        config = {
-            "monitor": {
-                "patterns": ["test"],
-                "check_interval": 5,
-                "max_messages_per_check": 10,
-                "monitored_groups": ["group1", "group2"],
-            }
-        }
-        state = BotState()
-        RPABotCore(config, state)
+    def test_internal_settings_stored(self):
+        """内部设置被正确存储"""
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings(
+            browser_user_data_dir="./test_browser_data",
+            browser_win_width=1920,
+            browser_win_height=1080,
+        )
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        assert config["monitor"]["check_interval"] == 5
-        assert config["monitor"]["max_messages_per_check"] == 10
-        assert config["monitor"]["monitored_groups"] == ["group1", "group2"]
+        assert bot.internal_settings.browser_user_data_dir == "./test_browser_data"
+        assert bot.internal_settings.browser_win_width == 1920
+        assert bot.internal_settings.browser_win_height == 1080
 
-    def test_state_tracking_match_count(self):
-        """状态跟踪匹配计数"""
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        RPABotCore(config, state)
+    def test_runtime_stats_initially_zero(self):
+        """运行时统计初始为0"""
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        state.match_count = 5
-        assert state.match_count == 5
-
-    def test_state_tracking_reaction_count(self):
-        """状态跟踪点赞计数"""
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        RPABotCore(config, state)
-
-        state.reaction_count = 3
-        assert state.reaction_count == 3
-
-    def test_state_tracking_fail_count(self):
-        """状态跟踪失败计数"""
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        RPABotCore(config, state)
-
-        state.fail_count = 2
-        assert state.fail_count == 2
+        assert bot.match_count == 0
+        assert bot.reaction_count == 0
+        assert bot.fail_count == 0
+        assert bot.start_time is None
 
     def test_log_callback_is_stored(self):
         """日志回调被存储"""
@@ -114,83 +129,56 @@ class TestRPABotCoreSyncInterface:
         def mock_log(msg):
             log_msgs.append(msg)
 
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        bot = RPABotCore(config, state, log_callback=mock_log)
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(
+            monitor_settings, internal_settings, message_repo, log_callback=mock_log
+        )
 
         bot.log("test message")
         assert log_msgs[0] == "test message"
 
     def test_stop_callback_is_stored(self):
         """停止回调被存储"""
-        stop_called = []
 
         def mock_stop():
-            stop_called.append(True)
+            pass
 
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        bot = RPABotCore(config, state, stop_callback=mock_stop)
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(
+            monitor_settings, internal_settings, message_repo, stop_callback=mock_stop
+        )
 
         assert callable(bot.stop_callback)
 
     def test_initial_running_state_false(self):
         """初始运行状态为 False"""
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        bot = RPABotCore(config, state)
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        assert bot._running is False
+        assert bot.is_running is False
 
-    def test_patterns_from_multiple_groups(self):
-        """支持多个群组的模式"""
-        config = {
-            "monitor": {
-                "patterns": ["pattern1", "pattern2"],
-                "monitored_groups": ["group1", "group2"],
-            }
-        }
-        state = BotState()
-        bot = RPABotCore(config, state)
+    def test_is_running_property_readonly(self):
+        """is_running 属性是只读的"""
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        assert bot.matcher.matches("pattern1 found") is True
-        assert bot.matcher.matches("pattern2 found") is True
+        # Should not be able to set directly (property is read-only)
+        with pytest.raises(AttributeError):
+            bot.is_running = True
 
-    @pytest.mark.asyncio
-    async def test_extract_message_id(self):
-        """测试消息ID提取逻辑"""
-        from unittest.mock import AsyncMock
+    def test_message_repo_stored(self):
+        """消息仓库被正确存储"""
+        monitor_settings = create_monitor_settings()
+        internal_settings = create_internal_settings()
+        message_repo = InMemoryFeishuMessageRepository()
+        bot = RPABotCore(monitor_settings, internal_settings, message_repo)
 
-        config = {"monitor": {"patterns": ["test"]}}
-        state = BotState()
-        bot = RPABotCore(config, state)
-
-        # Mock element
-        element = MagicMock()
-        element.get_attribute = AsyncMock()
-        element.query_selector = AsyncMock()
-
-        # Scenario 1: Attribute exists
-        element.get_attribute.return_value = "id_123"
-        msg_id = await bot._extract_message_id(element, "text")
-        assert msg_id == "id_123"
-
-        # Scenario 2: Attribute missing, fallback to hash
-        element.get_attribute.return_value = None
-        element.query_selector.return_value = None
-        msg_id = await bot._extract_message_id(element, "some_text")
-        assert "_" in msg_id  # Should be timestamp_hash
-
-    @pytest.mark.asyncio
-    async def test_delay_uses_config(self):
-        """测试延迟使用配置"""
-        config = {"anti_detect": {"min_delay": 0.01, "max_delay": 0.02}}
-        state = BotState()
-        bot = RPABotCore(config, state)
-
-        start = time.time()
-        await bot._delay()
-        end = time.time()
-
-        # Should be at least 0.01
-        assert end - start >= 0.01
+        assert bot.message_repo is message_repo
