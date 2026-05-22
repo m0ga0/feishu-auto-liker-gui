@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 # Import App - the conftest provides mocked customtkinter
 from parkbot.gui.app import App
 from parkbot.config.models import MonitorSettings, InternalSettings
+from parkbot.dao_impl.chat.repo_impls import InMemoryFeishuMessageRepository
 
 
 @pytest.fixture
@@ -37,8 +38,13 @@ def mock_config_repo():
     return repo
 
 
+@pytest.fixture
+def mock_message_repo():
+    """Create a mock message repository."""
+    return InMemoryFeishuMessageRepository()
+
+
 class TestApp:
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -47,17 +53,15 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        App(app_settings=mock_config_repo)
+        App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
-        assert mock_bot_state.called
         assert mock_console.called
         assert mock_install.called
         assert mock_settings.called
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -66,10 +70,10 @@ class TestApp:
         mock_settings_class,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
         mock_settings = mock_settings_class.return_value
         mock_settings.get_config_data.return_value = {
@@ -85,7 +89,6 @@ class TestApp:
             assert app.monitor_settings.patterns == ["test"]
             mock_config_repo.monitor.save.assert_called()
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -94,17 +97,16 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
         app.console_tab = MagicMock()
         app._log_to_ui("test message")
 
         app.console_tab.log_message.assert_called_once_with("test message")
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -113,14 +115,13 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
         app._log_to_ui("test message")
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -131,10 +132,10 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
         mock_checker = MagicMock()
         mock_checker.check_all.return_value = {
@@ -150,7 +151,6 @@ class TestApp:
 
         assert mock_checker.check_all.called
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -161,10 +161,10 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
 
         with patch("pathlib.Path.exists", return_value=True):
             app._open_data_folder()
@@ -172,7 +172,6 @@ class TestApp:
             mock_popen.assert_called()
 
     @patch("threading.Thread")
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -183,11 +182,11 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_thread,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
         app.install_tab = MagicMock()
         app.console_tab = MagicMock()
 
@@ -204,7 +203,6 @@ class TestApp:
         mock_thread.assert_called()
         mock_thread_instance.start.assert_called()
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -215,10 +213,10 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
         app.settings_tab = MagicMock()
         app.settings_tab.get_config_data.return_value = {
             "patterns": [],
@@ -235,7 +233,6 @@ class TestApp:
 
         assert mock_bot_core.called
 
-    @patch("parkbot.gui.app.BotState")
     @patch("parkbot.gui.app.ConsoleTab")
     @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
@@ -244,77 +241,77 @@ class TestApp:
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
-        app.bot_state = MagicMock()
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
+        app.bot = MagicMock()
+        app.bot.start_time = MagicMock()
         app.console_tab = MagicMock()
 
         app._on_bot_stopped()
 
-    @patch.object(App, "_log_to_ui")
-    @patch("parkbot.gui.app.BotState")
-    @patch("parkbot.gui.app.ConsoleTab")
-    @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch.object(App, "_log_to_ui")
     def test_log_final_stats(
         self,
-        mock_settings,
-        mock_install,
-        mock_console,
-        mock_bot_state,
-        mock_config_repo,
         mock_log_to_ui,
+        mock_console,
+        mock_install,
+        mock_settings,
+        mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
-        app.bot_state.match_count = 10
-        app.bot_state.reaction_count = 8
-        app.bot_state.fail_count = 2
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
+        app.bot = MagicMock()
+        app.bot.match_count = 10
+        app.bot.reaction_count = 8
+        app.bot.fail_count = 2
+        app.bot.start_time = MagicMock()
 
         app._log_final_stats()
 
         mock_log_to_ui.assert_called()
 
-    @patch("parkbot.gui.app.BotState")
-    @patch("parkbot.gui.app.ConsoleTab")
-    @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.ConsoleTab")
     def test_do_reset(
         self,
         mock_settings,
         mock_install,
         mock_console,
-        mock_bot_state,
         mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
-        app.bot_state = MagicMock()
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
+        # No bot_state to reset anymore, just verify it doesn't crash
+        app._log_to_ui = MagicMock()
 
-        app._do_reset()
+        app._reset_stats()
 
-        app.bot_state.reset.assert_called_once()
+        # Should log a message
+        app._log_to_ui.assert_called_once()
 
-    @patch.object(App, "_log_to_ui")
-    @patch("parkbot.gui.app.BotState")
-    @patch("parkbot.gui.app.ConsoleTab")
-    @patch("parkbot.gui.app.InstallTab")
     @patch("parkbot.gui.app.SettingsTab")
+    @patch("parkbot.gui.app.InstallTab")
+    @patch("parkbot.gui.app.ConsoleTab")
+    @patch.object(App, "_log_to_ui")
     def test_reset_stats(
         self,
-        mock_settings,
-        mock_install,
-        mock_console,
-        mock_bot_state,
-        mock_config_repo,
         mock_log_to_ui,
+        mock_console,
+        mock_install,
+        mock_settings,
+        mock_config_repo,
+        mock_message_repo,
     ):
-        app = App(app_settings=mock_config_repo)
-        app.bot_state = MagicMock()
+        app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
         app.console_tab = MagicMock()
 
         app._reset_stats()
 
-        app.bot_state.reset.assert_called_once()
         app.console_tab.reset.assert_called_once()
         mock_log_to_ui.assert_called()

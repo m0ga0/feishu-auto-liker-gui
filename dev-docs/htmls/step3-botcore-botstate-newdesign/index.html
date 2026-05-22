@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Step 3: BotCore & BotState Refactoring Design (Updated)</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f0f2f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+
+        .section-wrapper {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section {
+            flex: 2;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            color: #2d3748;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+        }
+
+        .section h3 {
+            color: #4a5568;
+            margin: 25px 0 15px 0;
+            font-size: 1.4em;
+        }
+
+        .section h4 {
+            color: #2d3748;
+            margin: 20px 0 10px 0;
+            font-size: 1.2em;
+        }
+
+        .comment-sidebar {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .comment-box {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            position: sticky;
+            top: 20px;
+        }
+
+        .comment-box h4 {
+            color: #4a5568;
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .comment-box textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 10px;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9em;
+            resize: vertical;
+            background: #f7fafc;
+        }
+
+        .comment-box textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            background: #fff;
+        }
+
+        .decision-box {
+            background: #fffaf0;
+            border-left: 4px solid #ed8936;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .decision-box h4 { color: #c05621; margin-top: 0; }
+
+        .pros-cons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 15px 0;
+        }
+
+        .pros, .cons {
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .pros {
+            background: #f0fff4;
+            border: 1px solid #68d391;
+        }
+
+        .cons {
+            background: #fff5f5;
+            border: 1px solid #fc8181;
+        }
+
+        .pros h5 { color: #276749; margin-bottom: 10px; }
+        .cons h5 { color: #c53030; margin-bottom: 10px; }
+
+        pre[class*="language-"] {
+            margin: 20px 0;
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .mermaid {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #4a5568;
+            color: white;
+        }
+
+        tr:hover { background: #f7fafc; }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .badge-remove { background: #fed7d7; color: #c53030; }
+        .badge-merge { background: #feebc8; color: #c05621; }
+        .badge-new { background: #c6f6d5; color: #276749; }
+        .badge-refactor { background: #bee3f8; color: #2c5282; }
+
+        .warning-box {
+            background: #fffaf0;
+            border: 1px solid #fbd38d;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .warning-box strong { color: #c05621; }
+
+        ul, ol { margin: 10px 0 10px 25px; }
+        li { margin: 5px 0; }
+
+        .toc {
+            background: #f7fafc;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .toc a:hover { text-decoration: underline; }
+
+        /* Comments Output Section */
+        .comments-output-section {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-top: 40px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .comments-output-section h2 {
+            color: #2d3748;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .generate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-bottom: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .generate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .output-container {
+            position: relative;
+            background: #1a1a2e;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .output-header {
+            background: #16213e;
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .output-header span {
+            color: #a0aec0;
+            font-size: 0.9em;
+        }
+
+        .copy-btn {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #2d3748;
+        }
+
+        .copy-btn.copied {
+            background: #48bb78;
+        }
+
+        #comments-output {
+            width: 100%;
+            min-height: 300px;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #e2e8f0;
+            border: none;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+
+        .scenario-box {
+            background: #e6fffa;
+            border: 1px solid #81e6d9;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .scenario-box h5 {
+            color: #234e52;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Step 3: BotCore & BotState Refactoring Design (Updated)</h1>
+            <p>Complete redesign with FeishuMessage model and batch operations</p>
+        </div>
+
+        <div class="section-wrapper" data-section="toc">
+            <div class="section">
+                <h2>📋 Table of Contents</h2>
+                <div class="toc">
+                    <ol>
+                        <li><a href="#current-issues">Current Issues Analysis</a></li>
+                        <li><a href="#design-decisions">Key Design Decisions</a></li>
+                        <li><a href="#message-model">FeishuMessage Model Design</a></li>
+                        <li><a href="#scenarios">Business Scenarios Explained</a></li>
+                        <li><a href="#sqlite-model">SQLite Model Design</a></li>
+                        <li><a href="#dao-design">DAO Interface Design (Batch Operations)</a></li>
+                        <li><a href="#repo-impl">Repository Implementations</a></li>
+                        <li><a href="#rpabotcore-refactor">RPABotCore Refactoring with Batch Logic</a></li>
+                        <li><a href="#sequence-diagrams">Sequence Diagrams</a></li>
+                        <li><a href="#file-structure">File Structure</a></li>
+                        <li><a href="#test-plan">Test Plan</a></li>
+                    </ol>
+                </div>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Overview</h4>
+                    <textarea class="section-comment" placeholder="Add your comments about the overall design..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="current-issues">
+            <div class="section" id="current-issues">
+                <h2>🔍 Current Issues Analysis</h2>
+
+                <h3>Issues to Fix</h3>
+                <table>
+                    <tr>
+                        <th>Item</th>
+                        <th>Current State</th>
+                        <th>Issue</th>
+                        <th>Action</th>
+                    </tr>
+                    <tr>
+                        <td><code>recent_logs</code></td>
+                        <td>List[str] in BotState</td>
+                        <td>Never used outside class</td>
+                        <td><span class="badge badge-remove">Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td><code>self._lock</code></td>
+                        <td>threading.Lock() in BotState</td>
+                        <td>Initialized but never used</td>
+                        <td><span class="badge badge-remove">Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td><code>is_running</code></td>
+                        <td>Duplicate in BotState + RPABotCore</td>
+                        <td>Confusing ownership</td>
+                        <td><span class="badge badge-merge">Merge into RPABotCore</span></td>
+                    </tr>
+                    <tr>
+                        <td><code>last_checked_ids</code></td>
+                        <td>Stored per group</td>
+                        <td>Never used</td>
+                        <td><span class="badge badge-remove">Remove</span></td>
+                    </tr>
+                    <tr>
+                        <td><code>seen_ids/reacted_ids</code></td>
+                        <td>Simple sets in JSON</td>
+                        <td>No metadata, poor retry support</td>
+                        <td><span class="badge badge-new">Replace with FeishuMessage</span></td>
+                    </tr>
+                    <tr>
+                        <td>Batch operations</td>
+                        <td>Single-message queries</td>
+                        <td>Bad DB performance (N+1 problem)</td>
+                        <td><span class="badge badge-new">Batch query/save</span></td>
+                    </tr>
+                </table>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Issues</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the issue analysis..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="design-decisions">
+            <div class="section" id="design-decisions">
+                <h2>🎯 Key Design Decisions</h2>
+
+                <div class="decision-box">
+                    <h4>Decision 1: Message Identity</h4>
+                    <p><strong>Change:</strong> Use <code>id</code> as single PK, group_name as attribute</p>
+                    <p><strong>Rationale:</strong> Message IDs from Feishu are globally unique. Group context is metadata, not part of identity.</p>
+                </div>
+
+                <div class="decision-box">
+                    <h4>Decision 2: Remove is_processed flag</h4>
+                    <p><strong>Change:</strong> Remove is_processed, use storage existence to determine "seen" status</p>
+                    <p><strong>Rationale:</strong> If message not in storage = never seen. If in storage, check other fields for state.</p>
+                </div>
+
+                <div class="decision-box">
+                    <h4>Decision 3: Batch Operations</h4>
+                    <p><strong>Change:</strong> All repository operations are batch-based</p>
+                    <p><strong>Rationale:</strong> Avoid N+1 query problem. Process messages in batches for better performance.</p>
+                </div>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Decisions</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the design decisions..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="message-model">
+            <div class="section" id="message-model">
+                <h2>📦 FeishuMessage Model Design</h2>
+
+                <h3>Location</h3>
+                <p><code>src/parkbot/chat/models.py</code></p>
+
+                <h3>Domain Model</h3>
+                <pre><code class="language-python"># src/parkbot/chat/models.py
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, Field
+
+
+class FeishuMessage(BaseModel):
+    """
+    Domain model representing a Feishu chat message.
+
+    Business Logic:
+    - If message not found in storage: Never seen before (new or missed)
+    - If found in storage with is_reacted=None: Seen but no action taken
+      (app killed/shutdown before processing)
+    - If found with is_reacted=False, matched_pattern=None: Checked but
+      pattern did not match
+    - If found with is_reacted=True: Matched and reacted
+
+    Config class purpose:
+    - frozen=False allows mutation for state updates after creation
+    - This is required because we update is_reacted and matched_pattern
+      after initial creation when processing occurs
+    """
+    id: str = Field(..., description="Unique message ID from Feishu (global)")
+    group_name: str = Field(default="", description="Human-readable group name")
+    text: str = Field(..., description="Message content")
+    sender_id: str = Field(default="", description="Sender user ID (placeholder)")
+    sender_name: str = Field(default="", description="Sender display name (placeholder)")
+
+    # Processing state (None = not checked yet, False = checked no match, True = matched & reacted)
+    is_reacted: Optional[bool] = Field(default=None, description="None=unchecked, False=no match, True=reacted")
+    target_pattern: Optional[str] = Field(default=None, description="Pattern that was checked (stores checked pattern even on no-match)")
+
+    # Timestamp
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    reacted_at: Optional[datetime] = Field(default=None)
+
+    class Config:
+        """
+        Pydantic configuration.
+        frozen=False allows field mutation after creation, which is necessary
+        for updating message state (is_reacted, matched_pattern) during processing.
+        """
+        frozen = False
+
+    def mark_processed(self, is_reacted: bool, target_pattern: Optional[str]) -> None:
+        """
+        Mark message as processed with result.
+
+        Unified method to handle all processing scenarios:
+        - is_reacted=True, target_pattern=<pattern>: Matched and reacted
+        - is_reacted=False, target_pattern=<pattern>: Checked but no match
+        - is_reacted=None: Not processed yet (initial state)
+
+        Always updates reacted_at timestamp.
+        """
+        self.is_reacted = is_reacted
+        self.target_pattern = target_pattern
+        self.reacted_at = datetime.utcnow()</code></pre>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Message Model</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the FeishuMessage model..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="scenarios">
+            <div class="section" id="scenarios">
+                <h2>🎭 Business Scenarios Explained</h2>
+
+                <div class="scenario-box">
+                    <h5>Scenario 1: Message Not Found in Storage</h5>
+                    <p><strong>Meaning:</strong> We've never seen this message before.</p>
+                    <p><strong>Action:</strong> Process it normally (check pattern, react if matched).</p>
+                </div>
+
+                <div class="scenario-box">
+                    <h5>Scenario 2: Message Found, is_reacted=None, matched_pattern=None</h5>
+                    <p><strong>Meaning:</strong> App was killed/shutdown before processing completed.</p>
+                    <p><strong>Action:</strong> Re-process as if new (check pattern, react if matched).</p>
+                </div>
+
+                <div class="scenario-box">
+                    <h5>Scenario 3: Message Found, is_reacted=False, target_pattern=&lt;pattern&gt;</h5>
+                    <p><strong>Meaning:</strong> Message was checked and target_pattern stores the pattern that was checked (but didn't match).</p>
+                    <p><strong>Action:</strong> Skip (unless in retry mode with new pattern).</p>
+                </div>
+
+                <div class="scenario-box">
+                    <h5>Scenario 4: Message Found, is_reacted=True, target_pattern=&lt;pattern&gt;</h5>
+                    <p><strong>Meaning:</strong> Message was matched and successfully reacted. target_pattern stores the pattern that matched.</p>
+                    <p><strong>Action:</strong> Skip (prevent duplicate reactions).</p>
+                </div>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Scenarios</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the business scenarios..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="sqlite-model">
+            <div class="section" id="sqlite-model">
+                <h2>🗄️ SQLite Model Design</h2>
+
+                <h3>Location</h3>
+                <p><code>src/parkbot/dao_impl/chat/models_impls.py</code></p>
+
+                <pre><code class="language-python"># src/parkbot/dao_impl/chat/models_impls.py
+from sqlmodel import SQLModel, Field
+from datetime import datetime
+from typing import Optional
+from parkbot.chat.models import FeishuMessage
+
+
+class SqliteFeishuMessage(SQLModel, table=True):
+    """Database model for FeishuMessage persistence in SQLite."""
+    __tablename__ = "feishu_messages"
+
+    # Single primary key - Feishu message IDs are globally unique
+    id: str = Field(primary_key=True)
+
+    group_name: str = Field(default="")
+    text: str
+    sender_id: str = Field(default="")
+    sender_name: str = Field(default="")
+
+    # State flags
+    is_reacted: Optional[bool] = Field(default=None, index=True)
+    target_pattern: Optional[str] = None
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    reacted_at: Optional[datetime] = None
+
+    def to_domain(self) -> FeishuMessage:
+        """Convert DB model to domain model."""
+        return FeishuMessage(
+            id=self.id,
+            group_name=self.group_name,
+            text=self.text,
+            sender_id=self.sender_id,
+            sender_name=self.sender_name,
+            is_reacted=self.is_reacted,
+            target_pattern=self.target_pattern,
+            created_at=self.created_at,
+            reacted_at=self.reacted_at,
+        )
+
+    @classmethod
+    def from_domain(cls, msg: FeishuMessage) -> "SqliteFeishuMessage":
+        """Convert domain model to DB model."""
+        return cls(
+            id=msg.id,
+            group_name=msg.group_name,
+            text=msg.text,
+            sender_id=msg.sender_id,
+            sender_name=msg.sender_name,
+            is_reacted=msg.is_reacted,
+            target_pattern=msg.target_pattern,
+            created_at=msg.created_at,
+            reacted_at=msg.reacted_at,
+        )</code></pre>
+
+                <h3>Indexes</h3>
+                <table>
+                    <tr>
+                        <th>Index Name</th>
+                        <th>Column</th>
+                        <th>Purpose</th>
+                    </tr>
+                    <tr>
+                        <td>idx_messages_reacted</td>
+                        <td>is_reacted</td>
+                        <td>Fast lookup for unprocessed messages</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on SQLite Model</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the SQLite model..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="dao-design">
+            <div class="section" id="dao-design">
+                <h2>🔌 DAO Interface Design (Batch Operations)</h2>
+
+                <h3>Location</h3>
+                <p><code>src/parkbot/dao_impl/chat/dao.py</code></p>
+
+                <h3>Repository Interface</h3>
+                <pre><code class="language-python"># src/parkbot/dao_impl/chat/dao.py
+from abc import ABC, abstractmethod
+from typing import List, Optional, Dict
+from parkbot.chat.models import FeishuMessage
+
+
+class IFeishuMessageRepository(ABC):
+    """
+    Repository interface for FeishuMessage persistence.
+
+    All operations are batch-based to avoid N+1 query problems.
+    Implementations should handle batching with appropriate limits
+    to manage memory usage.
+    """
+
+    # Batch size limit to prevent memory issues
+    BATCH_SIZE: int = 100
+
+    @abstractmethod
+    def get_by_ids(self, message_ids: List[str]) -> Dict[str, Optional[FeishuMessage]]:
+        """
+        Get multiple messages by their IDs.
+
+        Args:
+            message_ids: List of message IDs to retrieve
+
+        Returns:
+            Dict mapping message_id -> FeishuMessage or None if not found
+
+        Note:
+            Implementation should batch queries if len(message_ids) > BATCH_SIZE
+        """
+        ...
+
+    @abstractmethod
+    def save_batch(self, messages: List[FeishuMessage]) -> None:
+        """
+        Save multiple messages (insert or update).
+
+        Args:
+            messages: List of messages to save
+
+        Note:
+            Implementation should batch inserts if len(messages) > BATCH_SIZE
+        """
+        ...
+
+    @abstractmethod
+    def mark_reacted_batch(self, message_ids: List[str]) -> int:
+        """
+        Mark multiple messages as reacted.
+
+        Args:
+            message_ids: List of message IDs to mark
+
+        Returns:
+            Number of messages actually updated
+
+        Note:
+            This is an optimization to avoid loading full objects.
+            Updates is_reacted=True and reacted_at=now for all given IDs.
+        """
+        ...
+
+    @abstractmethod
+    def exists(self, message_id: str) -> bool:
+        """
+        Check if a message exists in storage.
+
+        Args:
+            message_id: Message ID to check
+
+        Returns:
+            True if message exists, False otherwise
+        """
+        ...
+
+    @abstractmethod
+    def exists_batch(self, message_ids: List[str]) -> Dict[str, bool]:
+        """
+        Check existence of multiple messages.
+
+        Args:
+            message_ids: List of message IDs to check
+
+        Returns:
+            Dict mapping message_id -> True/False for existence
+        """
+        ...
+
+    @abstractmethod
+    def get_by_ids_iter(self, message_ids: List[str]):
+        """
+        Generator version for memory-efficient iteration.
+
+        Yields messages one by one to save memory for large batches.
+
+        Args:
+            message_ids: List of message IDs to retrieve
+
+        Yields:
+            FeishuMessage objects one at a time
+
+        Example:
+            for msg in repo.get_by_ids_iter(ids):
+                process(msg)
+        """
+        ...</code></pre>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on DAO Interface</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the DAO interface..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="repo-impl">
+            <div class="section" id="repo-impl">
+                <h2>📦 Repository Implementations</h2>
+
+                <h3>Location</h3>
+                <p><code>src/parkbot/dao_impl/chat/repo_impls.py</code></p>
+
+                <pre><code class="language-python"># src/parkbot/dao_impl/chat/repo_impls.py
+import json
+from pathlib import Path
+from typing import List, Optional, Dict
+from datetime import datetime
+from sqlmodel import Session, select
+from .dao import IFeishuMessageRepository
+from parkbot.chat.models import FeishuMessage
+from .models_impls import SqliteFeishuMessage
+
+
+class SqliteFeishuMessageRepository(IFeishuMessageRepository):
+    """SQLite implementation of IFeishuMessageRepository."""
+
+    def __init__(self, engine):
+        self.engine = engine
+
+    def get_by_ids(self, message_ids: List[str]) -> Dict[str, Optional[FeishuMessage]]:
+        result = {}
+        # Process in batches to avoid memory issues
+        for i in range(0, len(message_ids), self.BATCH_SIZE):
+            batch = message_ids[i:i + self.BATCH_SIZE]
+            with Session(self.engine) as session:
+                statement = select(SqliteFeishuMessage).where(
+                    SqliteFeishuMessage.id.in_(batch)
+                )
+                db_messages = session.exec(statement).all()
+                # Map found messages
+                for db_msg in db_messages:
+                    result[db_msg.id] = db_msg.to_domain()
+                # Mark not-found as None
+                for msg_id in batch:
+                    if msg_id not in result:
+                        result[msg_id] = None
+        return result
+
+    def save_batch(self, messages: List[FeishuMessage]) -> None:
+        # Process in batches
+        for i in range(0, len(messages), self.BATCH_SIZE):
+            batch = messages[i:i + self.BATCH_SIZE]
+            with Session(self.engine) as session:
+                for msg in batch:
+                    db_msg = SqliteFeishuMessage.from_domain(msg)
+                    session.merge(db_msg)  # Upsert
+                session.commit()
+
+    def mark_reacted_batch(self, message_ids: List[str]) -> int:
+        updated_count = 0
+        now = datetime.utcnow()
+
+        for i in range(0, len(message_ids), self.BATCH_SIZE):
+            batch = message_ids[i:i + self.BATCH_SIZE]
+            with Session(self.engine) as session:
+                statement = select(SqliteFeishuMessage).where(
+                    SqliteFeishuMessage.id.in_(batch)
+                )
+                db_messages = session.exec(statement).all()
+                for db_msg in db_messages:
+                    db_msg.is_reacted = True
+                    db_msg.reacted_at = now
+                    updated_count += 1
+                session.commit()
+
+        return updated_count
+
+    def exists(self, message_id: str) -> bool:
+        with Session(self.engine) as session:
+            return session.get(SqliteFeishuMessage, message_id) is not None
+
+    def exists_batch(self, message_ids: List[str]) -> Dict[str, bool]:
+        result = {msg_id: False for msg_id in message_ids}
+
+        for i in range(0, len(message_ids), self.BATCH_SIZE):
+            batch = message_ids[i:i + self.BATCH_SIZE]
+            with Session(self.engine) as session:
+                statement = select(SqliteFeishuMessage.id).where(
+                    SqliteFeishuMessage.id.in_(batch)
+                )
+                found_ids = {row[0] for row in session.exec(statement).all()}
+                for msg_id in batch:
+                    if msg_id in found_ids:
+                        result[msg_id] = True
+
+        return result
+
+    def get_by_ids_iter(self, message_ids: List[str]):
+        """Generator for memory-efficient iteration."""
+        for i in range(0, len(message_ids), self.BATCH_SIZE):
+            batch = message_ids[i:i + self.BATCH_SIZE]
+            with Session(self.engine) as session:
+                statement = select(SqliteFeishuMessage).where(
+                    SqliteFeishuMessage.id.in_(batch)
+                )
+                for db_msg in session.exec(statement):
+                    yield db_msg.to_domain()
+
+
+class FileFeishuMessageRepository(IFeishuMessageRepository):
+    """File-based JSON repository for simple deployments."""
+
+    def __init__(self, file_path: str = "messages.json"):
+        self.file_path = Path(file_path)
+        self._cache: Dict[str, dict] = {}
+        self._load()
+
+    def _load(self) -> None:
+        if self.file_path.exists():
+            with open(self.file_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                self._cache = {m["id"]: m for m in data.get("messages", [])}
+
+    def _save(self) -> None:
+        data = {"messages": list(self._cache.values())}
+        with open(self.file_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2, default=str)
+
+    def get_by_ids(self, message_ids: List[str]) -> Dict[str, Optional[FeishuMessage]]:
+        result = {}
+        for msg_id in message_ids:
+            data = self._cache.get(msg_id)
+            if data:
+                result[msg_id] = FeishuMessage(**self._convert_datetime_fields(data))
+            else:
+                result[msg_id] = None
+        return result
+
+    def save_batch(self, messages: List[FeishuMessage]) -> None:
+        for msg in messages:
+            self._cache[msg.id] = json.loads(msg.json())
+        self._save()
+
+    def mark_reacted_batch(self, message_ids: List[str]) -> int:
+        now = datetime.utcnow().isoformat()
+        count = 0
+        for msg_id in message_ids:
+            if msg_id in self._cache:
+                self._cache[msg_id]["is_reacted"] = True
+                self._cache[msg_id]["reacted_at"] = now
+                count += 1
+        self._save()
+        return count
+
+    def exists(self, message_id: str) -> bool:
+        return message_id in self._cache
+
+    def exists_batch(self, message_ids: List[str]) -> Dict[str, bool]:
+        return {msg_id: msg_id in self._cache for msg_id in message_ids}
+
+    def get_by_ids_iter(self, message_ids: List[str]):
+        """Generator for memory-efficient iteration."""
+        for msg_id in message_ids:
+            data = self._cache.get(msg_id)
+            if data:
+                yield FeishuMessage(**self._convert_datetime_fields(data))
+
+    def _convert_datetime_fields(self, data: dict) -> dict:
+        for field in ["created_at", "reacted_at"]:
+            if data.get(field):
+                data[field] = datetime.fromisoformat(data[field])
+        return data
+
+
+class InMemoryFeishuMessageRepository(IFeishuMessageRepository):
+    """In-memory repository for testing."""
+
+    def __init__(self):
+        self._storage: Dict[str, FeishuMessage] = {}
+
+    def get_by_ids(self, message_ids: List[str]) -> Dict[str, Optional[FeishuMessage]]:
+        return {msg_id: self._storage.get(msg_id) for msg_id in message_ids}
+
+    def save_batch(self, messages: List[FeishuMessage]) -> None:
+        for msg in messages:
+            self._storage[msg.id] = msg
+
+    def mark_reacted_batch(self, message_ids: List[str]) -> int:
+        now = datetime.utcnow()
+        count = 0
+        for msg_id in message_ids:
+            msg = self._storage.get(msg_id)
+            if msg:
+                msg.is_reacted = True
+                msg.reacted_at = now
+                count += 1
+        return count
+
+    def exists(self, message_id: str) -> bool:
+        return message_id in self._storage
+
+    def exists_batch(self, message_ids: List[str]) -> Dict[str, bool]:
+        return {msg_id: msg_id in self._storage for msg_id in message_ids}
+
+    def get_by_ids_iter(self, message_ids: List[str]):
+        """Generator for memory-efficient iteration."""
+        for msg_id in message_ids:
+            msg = self._storage.get(msg_id)
+            if msg:
+                yield msg
+
+    def clear_all(self) -> None:
+        """Helper for tests."""
+        self._storage.clear()</code></pre>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Repository Implementations</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the repository implementations..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="rpabotcore-refactor">
+            <div class="section" id="rpabotcore-refactor">
+                <h2>🔧 RPABotCore Refactoring with Batch Logic</h2>
+
+                <h3>New Attributes</h3>
+                <pre><code class="language-python">class RPABotCore:
+    def __init__(
+        self,
+        monitor_settings: MonitorSettings,
+        internal_settings: InternalSettings,
+        message_repo: IFeishuMessageRepository,  # Batch repository
+        log_callback: Optional[Callable[[str], None]] = None,
+        stop_callback: Optional[Callable[[], None]] = None,
+    ):
+        # Settings
+        self.monitor_settings = monitor_settings
+        self.internal_settings = internal_settings
+
+        # Runtime statistics (moved from BotState)
+        self.match_count = 0
+        self.reaction_count = 0
+        self.fail_count = 0
+        self.start_time: Optional[float] = None
+
+        # Unified running state (merged from BotState)
+        self._is_running = False
+
+        # Repository
+        self.message_repo = message_repo
+
+        # Callbacks
+        self.log = log_callback or (lambda msg: None)
+        self.stop_callback = stop_callback or (lambda: None)
+
+        # Matcher
+        self.matcher = PatternMatcher(self.monitor_settings.patterns)
+
+        # Browser resources
+        self._page: object = None
+        self._context = None
+        self._playwright = None
+
+    @property
+    def is_running(self) -> bool:
+        """Public read-only access to running state."""
+        return self._is_running</code></pre>
+
+                <h3>Refactored _run_loop with Batch Processing</h3>
+                <pre><code class="language-python">async def _run_loop(self):
+    """Main processing loop with batch operations."""
+    self._is_running = True
+    self.start_time = time.time()
+
+    check_interval = self.monitor_settings.check_interval
+    current_group = "_default"
+
+    while self._is_running:
+        try:
+            # Get messages from browser
+            messages = await self._get_messages(current_group)
+
+            if not messages:
+                await asyncio.sleep(check_interval)
+                continue
+
+            # Extract message IDs for batch query
+            message_ids = [msg["id"] for msg in messages]
+
+            # BATCH QUERY: Get existing messages from storage
+            existing_messages = self.message_repo.get_by_ids(message_ids)
+
+            # Classify messages into 3 groups
+            to_process = []  # Scenario 1: Not in storage
+            to_skip_checked = []  # Scenario 3: Checked, not matched
+            to_skip_reacted = []  # Scenario 4: Already reacted
+
+            for msg_data in messages:
+                msg_id = msg_data["id"]
+                existing = existing_messages.get(msg_id)
+
+                if existing is None:
+                    # Scenario 1: Never seen
+                    to_process.append(msg_data)
+                elif existing.is_reacted is None:
+                    # Scenario 2: Seen but not processed (app killed)
+                    to_process.append(msg_data)
+                elif existing.is_reacted is False:
+                    # Scenario 3: Checked, no match
+                    to_skip_checked.append(msg_id)
+                elif existing.is_reacted is True:
+                    # Scenario 4: Already reacted
+                    to_skip_reacted.append(msg_id)
+
+            # Log skipped messages
+            if to_skip_checked:
+                self.log(f"Skipping {len(to_skip_checked)} checked non-matching messages")
+            if to_skip_reacted:
+                self.log(f"Skipping {len(to_skip_reacted)} already-reacted messages")
+
+            # Process messages that need action
+            if to_process:
+                await self._process_message_batch(to_process, current_group)
+
+            await asyncio.sleep(check_interval)
+
+        except Exception as e:
+            self.log(f"⚠️ 监控异常: {e}")
+            if not self._is_running:
+                break
+            # Handle specific error types
+            error_msg = str(e)
+            if "Target page, context or browser has been closed" in error_msg:
+                self.log("⚠️ 浏览器已关闭，停止监控")
+                self._is_running = False
+                break
+            elif "Target closed" in error_msg:
+                self.log("⚠️ 页面已关闭，停止监控")
+                self._is_running = False
+                break
+            elif "net::ERR_ABORTED" in error_msg:
+                self.log("⚠️ 页面导航中断，停止监控")
+                self._is_running = False
+                break
+            await asyncio.sleep(check_interval)
+
+    self._is_running = False
+    self.stop_callback()
+
+
+async def _process_message_batch(self, messages: List[dict], group_name: str) -> None:
+    """
+    Process a batch of messages with pattern matching and reactions.
+
+    Steps:
+    1. Match all messages against patterns
+    2. Filter out already-reacted messages
+    3. Execute batch reactions
+    4. Save results to storage
+    """
+    matched_messages = []
+    no_match_messages = []
+
+    # Step 1: Pattern matching for all messages
+    for msg_data in messages:
+        msg_id = msg_data["id"]
+        msg_text = msg_data["text"]
+
+        is_match = self.matcher.matches(msg_text)
+
+        if is_match:
+            self.match_count += 1
+            matched_messages.append(msg_data)
+        else:
+            no_match_messages.append(msg_data)
+
+    # Step 2: Check which matched messages were already reacted
+    if matched_messages:
+        matched_ids = [m["id"] for m in matched_messages]
+        reacted_status = self.message_repo.exists_batch(matched_ids)
+
+        to_react = []
+        already_reacted = []
+
+        for msg_data in matched_messages:
+            msg_id = msg_data["id"]
+            if reacted_status.get(msg_id, False):
+                # Check if actually reacted (not just exists)
+                existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+                if existing and existing.is_reacted is True:
+                    already_reacted.append(msg_id)
+                else:
+                    to_react.append(msg_data)
+            else:
+                to_react.append(msg_data)
+
+        if already_reacted:
+            self.log(f"Skipping {len(already_reacted)} already-reacted messages")
+    else:
+        to_react = []
+
+    # Step 3: Execute batch reactions
+    reaction_results = []
+    if to_react:
+        self.log(f"Reacting to {len(to_react)} matched messages...")
+        for msg_data in to_react:
+            msg_id = msg_data["id"]
+            try:
+                success = await self._react(msg_data["element"])
+                reaction_results.append((msg_data, success))
+            except Exception as e:
+                self.log(f"Reaction failed for msg {msg_id}: {e}")
+                reaction_results.append((msg_data, False))
+
+    # Step 4: Prepare messages for saving
+    messages_to_save = []
+
+    # Add matched messages with reaction results
+    for msg_data, success in reaction_results:
+        msg_id = msg_data["id"]
+        msg_text = msg_data["text"]
+
+        # Get existing or create new
+        existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+        if existing:
+            msg = existing
+        else:
+            msg = FeishuMessage(
+                id=msg_id,
+                group_name=group_name,
+                text=msg_text,
+            )
+
+        # Update state using unified mark_processed method
+        if success:
+            msg.mark_processed(is_reacted=True, target_pattern="matched")
+            self.reaction_count += 1
+        else:
+            msg.mark_processed(is_reacted=False, target_pattern="matched")
+            self.fail_count += 1
+
+        messages_to_save.append(msg)
+
+    # Add non-matching messages (mark as checked)
+    for msg_data in no_match_messages:
+        msg_id = msg_data["id"]
+        msg_text = msg_data["text"]
+
+        existing = self.message_repo.get_by_ids([msg_id]).get(msg_id)
+        if existing:
+            msg = existing
+        else:
+            msg = FeishuMessage(
+                id=msg_id,
+                group_name=group_name,
+                text=msg_text,
+            )
+
+        # Mark as checked but no match - stores the pattern that was checked
+        msg.mark_processed(is_reacted=False, target_pattern="checked")
+        messages_to_save.append(msg)
+
+    # BATCH SAVE: Save all messages at once
+    if messages_to_save:
+        try:
+            self.message_repo.save_batch(messages_to_save)
+            self.log(f"Saved {len(messages_to_save)} message states")
+        except Exception as e:
+            msg_ids = [m.id for m in messages_to_save]
+            self.log(f"ERROR: Failed to save messages {msg_ids}: {e}")</code></pre>
+
+                <div class="warning-box">
+                    <strong>Key Improvements:</strong>
+                    <ul>
+                        <li><strong>Batch Query:</strong> Single query for all message IDs instead of N queries</li>
+                        <li><strong>Classification:</strong> Clear separation of 3 business scenarios</li>
+                        <li><strong>Batch Save:</strong> Save all processed messages in one batch operation</li>
+                        <li><strong>Error Handling:</strong> Proper error logging with message IDs</li>
+                        <li><strong>Removed _delay:</strong> Commented out for now (as requested)</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on RPABotCore</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on RPABotCore refactoring..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="sequence-diagrams">
+            <div class="section" id="sequence-diagrams">
+                <h2>📊 Sequence Diagrams</h2>
+
+                <h3>Batch Message Processing Flow</h3>
+                <div class="mermaid">
+sequenceDiagram
+    participant RPA as RPABotCore
+    participant Browser as Feishu Browser
+    participant Repo as IFeishuMessageRepository
+    participant DB as SQLite
+
+    loop While _is_running
+        RPA->>Browser: _get_messages()
+        Browser-->>RPA: List of messages
+
+        Note over RPA: Extract message_ids
+
+        RPA->>Repo: get_by_ids([id1, id2, id3, ...])
+        Repo->>DB: SELECT * FROM messages WHERE id IN (...)
+        DB-->>Repo: Existing messages
+        Repo-->>RPA: Dict[id -> Message]
+
+        Note over RPA: Classify into 3 groups:<br/>1. Not in storage<br/>2. In storage, not reacted<br/>3. Already reacted
+
+        RPA->>RPA: Pattern matching on group 1 & 2
+
+        alt Has matches
+            RPA->>Browser: Batch reactions
+            Browser-->>RPA: Reaction results
+        end
+
+        RPA->>Repo: save_batch([updated_messages])
+        Repo->>DB: Batch INSERT/UPDATE
+
+        Note over RPA: Sleep check_interval
+    end
+                </div>
+
+                <h3>Classification Logic</h3>
+                <div class="mermaid">
+flowchart TD
+    A[Message from Browser] --> B{Exists in storage?}
+    B -->|No| C[Scenario 1: Process]
+    B -->|Yes| D{is_reacted field?}
+    D -->|None| C
+    D -->|False| E[Scenario 3: Skip]
+    D -->|True| F[Scenario 4: Skip]
+
+    C --> G[Check Pattern]
+    G -->|Match| H[React]
+    G -->|No Match| I[Mark No Match]
+    H --> J[Batch Save]
+    I --> J
+    E --> K[Already checked]
+    F --> L[Already reacted]
+                </div>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Diagrams</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the sequence diagrams..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="file-structure">
+            <div class="section" id="file-structure">
+                <h2>🗂️ File Structure</h2>
+
+                <h3>Files to Delete</h3>
+                <ul>
+                    <li><code>src/parkbot/state/tracker.py</code></li>
+                </ul>
+
+                <h3>Files to Create</h3>
+                <ul>
+                    <li><code>src/parkbot/chat/__init__.py</code></li>
+                    <li><code>src/parkbot/chat/models.py</code> - FeishuMessage domain model</li>
+                    <li><code>src/parkbot/dao_impl/chat/__init__.py</code></li>
+                    <li><code>src/parkbot/dao_impl/chat/dao.py</code> - IFeishuMessageRepository</li>
+                    <li><code>src/parkbot/dao_impl/chat/models_impls.py</code> - SqliteFeishuMessage</li>
+                    <li><code>src/parkbot/dao_impl/chat/repo_impls.py</code> - All 3 implementations</li>
+                </ul>
+
+                <h3>Files to Modify</h3>
+                <ul>
+                    <li><code>src/parkbot/core/bot.py</code> - Refactor RPABotCore with batch logic</li>
+                    <li><code>src/parkbot/gui/app.py</code> - Update to use new repository</li>
+                    <li><code>src/parkbot/infra/config_di.py</code> - Add message repository DI</li>
+                </ul>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on File Structure</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the file structure..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-wrapper" data-section="test-plan">
+            <div class="section" id="test-plan">
+                <h2>🧪 Test Plan</h2>
+
+                <h3>Repository Tests</h3>
+                <pre><code class="language-python"># tests/dao_impl/chat/test_repositories.py
+import pytest
+from parkbot.chat.models import FeishuMessage
+from parkbot.dao_impl.chat.repo_impls import InMemoryFeishuMessageRepository
+
+
+class TestFeishuMessageRepository:
+    """Base test class - subclass for each implementation."""
+
+    def test_get_by_ids_batch(self, repo):
+        """Test batch retrieval."""
+        # Create test messages
+        msg1 = FeishuMessage(id="msg1", text="Hello 1")
+        msg2 = FeishuMessage(id="msg2", text="Hello 2")
+        repo.save_batch([msg1, msg2])
+
+        # Batch query
+        result = repo.get_by_ids(["msg1", "msg2", "msg3"])
+
+        assert result["msg1"] is not None
+        assert result["msg2"] is not None
+        assert result["msg3"] is None
+
+    def test_batch_save_and_update(self, repo):
+        """Test batch save with updates."""
+        msg = FeishuMessage(id="msg1", text="Hello")
+        repo.save_batch([msg])
+
+        # Update and save again
+        msg.mark_matched("pattern1")
+        msg.mark_reacted()
+        repo.save_batch([msg])
+
+        # Verify update
+        retrieved = repo.get_by_ids(["msg1"])["msg1"]
+        assert retrieved.is_reacted is True
+        assert retrieved.matched_pattern == "pattern1"
+
+    def test_exists_batch(self, repo):
+        """Test batch existence check."""
+        msg = FeishuMessage(id="msg1", text="Hello")
+        repo.save_batch([msg])
+
+        result = repo.exists_batch(["msg1", "msg2"])
+        assert result["msg1"] is True
+        assert result["msg2"] is False
+
+    def test_scenario_1_not_in_storage(self, repo):
+        """Test scenario 1: Message not in storage = never seen."""
+        result = repo.get_by_ids(["new_msg"])
+        assert result["new_msg"] is None
+
+    def test_scenario_2_not_processed(self, repo):
+        """Test scenario 2: In storage but is_reacted=None."""
+        msg = FeishuMessage(id="msg1", text="Hello")
+        # Don't set is_reacted - stays None
+        repo.save_batch([msg])
+
+        retrieved = repo.get_by_ids(["msg1"])["msg1"]
+        assert retrieved.is_reacted is None
+
+    def test_scenario_3_checked_no_match(self, repo):
+        """Test scenario 3: Checked but no match."""
+        msg = FeishuMessage(id="msg1", text="Hello")
+        msg.mark_no_match()
+        repo.save_batch([msg])
+
+        retrieved = repo.get_by_ids(["msg1"])["msg1"]
+        assert retrieved.is_reacted is False
+        assert retrieved.matched_pattern is None
+
+    def test_scenario_4_matched_and_reacted(self, repo):
+        """Test scenario 4: Matched and reacted."""
+        msg = FeishuMessage(id="msg1", text="Hello")
+        msg.mark_matched("pattern1")
+        msg.mark_reacted()
+        repo.save_batch([msg])
+
+        retrieved = repo.get_by_ids(["msg1"])["msg1"]
+        assert retrieved.is_reacted is True
+        assert retrieved.matched_pattern == "pattern1"
+
+
+class TestInMemoryRepository(TestFeishuMessageRepository):
+    @pytest.fixture
+    def repo(self):
+        repo = InMemoryFeishuMessageRepository()
+        repo.clear_all()
+        return repo
+
+
+class TestFileRepository(TestFeishuMessageRepository):
+    @pytest.fixture
+    def repo(self, tmp_path):
+        file_path = tmp_path / "test_messages.json"
+        from parkbot.dao_impl.chat.repo_impls import FileFeishuMessageRepository
+        return FileFeishuMessageRepository(str(file_path))</code></pre>
+            </div>
+            <div class="comment-sidebar">
+                <div class="comment-box">
+                    <h4>💬 Comments on Test Plan</h4>
+                    <textarea class="section-comment" placeholder="Add your comments on the test plan..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Output Section -->
+        <div class="comments-output-section">
+            <h2>📝 Gather All Section Comments</h2>
+            <p>Click the button below to compile all section comments (from sidebars) into a markdown document.</p>
+
+            <button class="generate-btn" onclick="generateComments()">📋 Generate Section Comments</button>
+
+            <div class="output-container">
+                <div class="output-header">
+                    <span>Section Comments Markdown</span>
+                    <button class="copy-btn" onclick="copyToClipboard()">📋 Copy</button>
+                </div>
+                <textarea id="comments-output" readonly placeholder="Your compiled section comments will appear here..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({
+            startOnLoad: true,
+            theme: 'default',
+            sequence: {
+                diagramMarginX: 50,
+                diagramMarginY: 10,
+                actorMargin: 50,
+                width: 150,
+                height: 65,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35,
+                mirrorActors: true,
+                bottomMarginAdj: 1,
+                useMaxWidth: true,
+                rightAngles: false,
+                showSequenceNumbers: false
+            }
+        });
+
+        function generateComments() {
+            const sections = document.querySelectorAll('.section-wrapper');
+            let markdown = '# Design Review Comments\n\n';
+            markdown += 'Generated on: ' + new Date().toLocaleString() + '\n\n';
+            markdown += '---\n\n';
+
+            let hasComments = false;
+
+            sections.forEach(wrapper => {
+                const sectionId = wrapper.getAttribute('data-section');
+                const sectionTitle = wrapper.querySelector('h2')?.textContent || sectionId;
+                const commentBox = wrapper.querySelector('.section-comment');
+
+                if (commentBox && commentBox.value.trim()) {
+                    hasComments = true;
+                    markdown += `## ${sectionTitle}\n\n`;
+                    markdown += `${commentBox.value.trim()}\n\n`;
+                    markdown += '---\n\n';
+                }
+            });
+
+            if (!hasComments) {
+                markdown += '*No comments added yet.*\n\n';
+                markdown += 'Please add your comments in the comment boxes next to each section.';
+            }
+
+            document.getElementById('comments-output').value = markdown;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('comments-output');
+            output.select();
+            output.setSelectionRange(0, 99999); // For mobile devices
+
+            try {
+                navigator.clipboard.writeText(output.value).then(() => {
+                    const btn = document.querySelector('.copy-btn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    btn.classList.add('copied');
+
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            } catch (err) {
+                // Fallback for older browsers
+                document.execCommand('copy');
+                alert('Copied to clipboard!');
+            }
+        }
+    </script>
+
+    <!-- Round 2 Q&A Section -->
+    <div style="background: white; padding: 40px; border-radius: 12px; margin: 40px auto; max-width: 1400px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+        <h2 style="color: #2d3748; border-bottom: 3px solid #667eea; padding-bottom: 10px; margin-bottom: 30px;">
+            💬 Comments Round 2 - Questions & Answers
+        </h2>
+
+        <div style="background: #f0fff4; border-left: 4px solid #48bb78; padding: 20px; margin: 20px 0; border-radius: 0 8px 8px 0;">
+            <h4 style="color: #276749; margin-top: 0;">✅ Answered</h4>
+            <p><strong>Q: Should reacted_at be updated even when is_reacted=False (no match)?</strong></p>
+            <p><strong>A:</strong> Yes - update reacted_at in all cases.</p>
+        </div>
+
+        <h3 style="color: #4a5568; margin: 30px 0 20px 0;">❓ Open Questions</h3>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 1: Unified State Method</h4>
+            <p>You suggested merging mark_reacted(), mark_matched(), mark_no_match() into one method.</p>
+            <p><strong>Proposed design:</strong></p>
+            <pre style="background: #1a1a2e; color: #e2e8f0; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; margin: 10px 0;"><code>def update_state(self, is_reacted: bool, target_pattern: Optional[str]) -> None:
+    self.is_reacted = is_reacted
+    self.target_pattern = target_pattern
+    self.reacted_at = datetime.utcnow()  # Always update</code></pre>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q1" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer here..."></textarea>
+        </div>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 2: target_pattern on No-Match</h4>
+            <p>When is_reacted=False (no match), should target_pattern store:</p>
+            <ul style="margin: 10px 0;">
+                <li>A) The pattern that was checked but didn't match?</li>
+                <li>B) All patterns that were tried (could be multiple)?</li>
+                <li>C) None (keep it None for no-match case)?</li>
+            </ul>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q2" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer (A, B, C, or explanation)..."></textarea>
+        </div>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 3: Iteration Version of get_by_ids</h4>
+            <p>Should we provide a generator/iterator version for memory efficiency?</p>
+            <pre style="background: #1a1a2e; color: #e2e8f0; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 13px; margin: 10px 0;"><code>def get_by_ids_iter(self, message_ids: List[str]) -> Iterator[FeishuMessage]:
+    """Yield messages one by one to save memory."""
+    for batch in chunked(message_ids, self.BATCH_SIZE):
+        for msg in self._query_batch(batch):
+            yield msg</code></pre>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q3" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer..."></textarea>
+        </div>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 4: Async DAO Methods</h4>
+            <p>Do we need async versions of repository methods?</p>
+            <ul style="margin: 10px 0;">
+                <li>Pros: Better integration with async _run_loop, future-proof</li>
+                <li>Cons: SQLite is CPU-bound, async may not help much; adds complexity</li>
+            </ul>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q4" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer..."></textarea>
+        </div>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 5: SQLAlchemy .all() vs .yield_per()</h4>
+            <p>Current code uses .all() which loads all results into memory. Should we use .yield_per(n) for streaming large results?</p>
+            <ul style="margin: 10px 0;">
+                <li>.all() - Load everything at once (simpler, but more memory)</li>
+                <li>.yield_per(100) - Stream results in chunks (less memory, more complex)</li>
+            </ul>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q5" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer..."></textarea>
+        </div>
+
+        <div style="background: #ebf8ff; border: 2px solid #4299e1; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h4 style="color: #2b6cb0; margin-top: 0;">Question 6: Scenario 2 Handling</h4>
+            <p>You noted Scenario 2 (is_reacted=None) is rare with batch save. Should we:</p>
+            <ul style="margin: 10px 0;">
+                <li>A) Keep handling it for robustness (defensive programming)</li>
+                <li>B) Simplify design to assume batch save is atomic (treat as Scenario 1)</li>
+            </ul>
+            <p style="color: #2b6cb0; font-weight: bold; margin-top: 15px;">💬 Your Answer:</p>
+            <textarea class="qa-answer" data-question="q6" style="width: 100%; min-height: 80px; padding: 10px; border: 2px solid #4299e1; border-radius: 6px; font-family: inherit; margin-top: 5px;" placeholder="Enter your answer (A or B)..."></textarea>
+        </div>
+
+        <h3 style="color: #4a5568; margin: 30px 0 20px 0;">📝 Summary of Changes Requested</h3>
+
+        <div style="background: #faf5ff; border: 1px solid #d6bcfa; padding: 20px; border-radius: 8px;">
+            <ol style="margin-left: 20px; line-height: 1.8;">
+                <li><strong>FeishuMessage Model:</strong>
+                    <ul style="margin: 5px 0;">
+                        <li>Merge mark_reacted(), mark_matched(), mark_no_match() into unified method</li>
+                        <li>Rename matched_pattern to target_pattern</li>
+                        <li>target_pattern should store checked pattern even on no-match (TBD)</li>
+                        <li>reacted_at should ALWAYS be updated (confirmed ✅)</li>
+                    </ul>
+                </li>
+                <li><strong>Business Scenarios:</strong>
+                    <ul style="margin: 5px 0;">
+                        <li>Scenario 2 (is_reacted=None): Rare but possible, decide handling approach</li>
+                        <li>Scenario 3 clarification: target_pattern stores the checked pattern</li>
+                        <li>All scenarios update reacted_at timestamp</li>
+                    </ul>
+                </li>
+                <li><strong>DAO Interface:</strong>
+                    <ul style="margin: 5px 0;">
+                        <li>Consider iterator version of get_by_ids for memory efficiency</li>
+                        <li>Decide on async versions (pros/cons listed above)</li>
+                    </ul>
+                </li>
+                <li><strong>Repository Implementation:</strong>
+                    <ul style="margin: 5px 0;">
+                        <li>Explain: .all() fetches all results, alternatives listed</li>
+                        <li>Consider .yield_per() for streaming large results</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <!-- Generate Q&A Markdown Section -->
+        <div style="background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%); border: 2px solid #cbd5e0; padding: 30px; border-radius: 12px; margin-top: 40px;">
+            <h3 style="color: #2d3748; margin-bottom: 20px;">📋 Generate Q&A Markdown</h3>
+            <p style="margin-bottom: 20px;">Click the button below to compile all questions and your answers into a markdown document for the AI agent.</p>
+
+            <button onclick="generateQAMarkdown()" style="background: linear-gradient(135deg, #48bb78 0%, #38a169 100%); color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 1.1em; cursor: pointer; margin-bottom: 20px; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                📋 Generate Q&A Markdown
+            </button>
+
+            <div style="position: relative; background: #1a1a2e; border-radius: 8px; overflow: hidden;">
+                <div style="background: #16213e; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #a0aec0; font-size: 0.9em;">Q&A Markdown Output</span>
+                    <button onclick="copyQAOutput()" style="background: #4a5568; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 0.85em; cursor: pointer;">
+                        📋 Copy
+                    </button>
+                </div>
+                <textarea id="qa-output" readonly style="width: 100%; min-height: 300px; padding: 20px; background: #1a1a2e; color: #e2e8f0; border: none; font-family: 'Consolas', 'Monaco', monospace; font-size: 13px; line-height: 1.6; resize: vertical;" placeholder="Your Q&A markdown will appear here after clicking 'Generate Q&A Markdown'..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Existing generateComments function...
+        function generateComments() {
+            const sections = document.querySelectorAll('.section-wrapper');
+            let markdown = '# Design Review Comments\n\n';
+            markdown += 'Generated on: ' + new Date().toLocaleString() + '\n\n';
+            markdown += '---\n\n';
+
+            let hasComments = false;
+
+            sections.forEach(wrapper => {
+                const sectionId = wrapper.getAttribute('data-section');
+                const sectionTitle = wrapper.querySelector('h2')?.textContent || sectionId;
+                const commentBox = wrapper.querySelector('.section-comment');
+
+                if (commentBox && commentBox.value.trim()) {
+                    hasComments = true;
+                    markdown += `## ${sectionTitle}\n\n`;
+                    markdown += `${commentBox.value.trim()}\n\n`;
+                    markdown += '---\n\n';
+                }
+            });
+
+            if (!hasComments) {
+                markdown += '*No comments added yet.*\n\n';
+                markdown += 'Please add your comments in the comment boxes next to each section.';
+            }
+
+            document.getElementById('comments-output').value = markdown;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('comments-output');
+            output.select();
+            output.setSelectionRange(0, 99999);
+
+            try {
+                navigator.clipboard.writeText(output.value).then(() => {
+                    const btn = document.querySelector('.copy-btn');
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    btn.classList.add('copied');
+
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.classList.remove('copied');
+                    }, 2000);
+                });
+            } catch (err) {
+                document.execCommand('copy');
+                alert('Copied to clipboard!');
+            }
+        }
+
+        // New Q&A Markdown Generation
+        function generateQAMarkdown() {
+            const questions = {
+                'q1': {
+                    title: 'Question 1: Unified State Method',
+                    desc: 'Merge mark_reacted(), mark_matched(), mark_no_match() into one method.'
+                },
+                'q2': {
+                    title: 'Question 2: target_pattern on No-Match',
+                    desc: 'When is_reacted=False (no match), what should target_pattern store?'
+                },
+                'q3': {
+                    title: 'Question 3: Iteration Version of get_by_ids',
+                    desc: 'Should we provide a generator/iterator version for memory efficiency?'
+                },
+                'q4': {
+                    title: 'Question 4: Async DAO Methods',
+                    desc: 'Do we need async versions of repository methods?'
+                },
+                'q5': {
+                    title: 'Question 5: SQLAlchemy .all() vs .yield_per()',
+                    desc: 'Should we use .yield_per(n) for streaming large results?'
+                },
+                'q6': {
+                    title: 'Question 6: Scenario 2 Handling',
+                    desc: 'Should we keep handling Scenario 2 or simplify the design?'
+                }
+            };
+
+            let markdown = '# Design Review - Round 2 Q&A\n\n';
+            markdown += 'Generated on: ' + new Date().toLocaleString() + '\n\n';
+            markdown += '---\n\n';
+
+            let hasAnswers = false;
+
+            // Add answered question
+            markdown += '## ✅ Answered\n\n';
+            markdown += '**Q: Should reacted_at be updated even when is_reacted=False (no match)?**\n';
+            markdown += '**A:** Yes - update reacted_at in all cases.\n\n';
+            markdown += '---\n\n';
+
+            // Add open questions with answers
+            markdown += '## ❓ Open Questions\n\n';
+
+            document.querySelectorAll('.qa-answer').forEach(textarea => {
+                const qKey = textarea.getAttribute('data-question');
+                const question = questions[qKey];
+                const answer = textarea.value.trim();
+
+                if (question) {
+                    markdown += `### ${question.title}\n\n`;
+                    markdown += `**Context:** ${question.desc}\n\n`;
+
+                    if (answer) {
+                        hasAnswers = true;
+                        markdown += `**Answer:** ${answer}\n\n`;
+                    } else {
+                        markdown += `**Answer:** *[Not answered yet]*\n\n`;
+                    }
+                    markdown += '---\n\n';
+                }
+            });
+
+            if (!hasAnswers) {
+                markdown += '\n*⚠️ Note: No answers have been provided yet. Please fill in the text areas above each question.*\n';
+            }
+
+            document.getElementById('qa-output').value = markdown;
+        }
+
+        function copyQAOutput() {
+            const output = document.getElementById('qa-output');
+            output.select();
+            output.setSelectionRange(0, 99999);
+
+            try {
+                navigator.clipboard.writeText(output.value).then(() => {
+                    const btn = event.target;
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Copied!';
+                    btn.style.background = '#48bb78';
+
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '#4a5568';
+                    }, 2000);
+                });
+            } catch (err) {
+                document.execCommand('copy');
+                alert('Copied to clipboard!');
+            }
+        }
+    </script>
+</body>
+</html>

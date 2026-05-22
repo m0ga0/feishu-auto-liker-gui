@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Option B: Gradual Migration - ElementHandle to Locator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .header .description {
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #0366d6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #0256c7;
+        }
+
+        .copy-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .code-section {
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: #f6f8fa;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e1e4e8;
+            font-weight: 600;
+            color: #24292e;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-header .badge {
+            background: #ffd33d;
+            color: #24292e;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .code-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .code-panel {
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .code-panel.old {
+            background: #fff5f5;
+            border-right: 1px solid #e1e4e8;
+        }
+
+        .code-panel.old h3 {
+            color: #d73a49;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .code-panel.new {
+            background: #f0fff4;
+        }
+
+        .code-panel.new h3 {
+            color: #28a745;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        pre {
+            background: #f6f8fa;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        code {
+            font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        }
+
+        .comment-section {
+            padding: 20px;
+            background: #fafbfc;
+            border-top: 1px solid #e1e4e8;
+        }
+
+        .comment-input-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .comment-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+
+        .comment-input:focus {
+            outline: none;
+            border-color: #0366d6;
+            box-shadow: 0 0 0 3px rgba(3,102,214,0.1);
+        }
+
+        .line-number {
+            color: #6a737d;
+            user-select: none;
+            margin-right: 16px;
+        }
+
+        .highlight {
+            background: #fff3cd;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .highlight-remove {
+            background: #ffdce0;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .highlight-add {
+            background: #cdffd8;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .summary-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .summary-section h2 {
+            margin-bottom: 15px;
+            color: #24292e;
+        }
+
+        .markdown-output {
+            width: 100%;
+            min-height: 300px;
+            padding: 16px;
+            border: 1px solid #d1d5da;
+            border-radius: 6px;
+            font-family: 'SFMono-Regular', Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.6;
+            resize: vertical;
+            margin-bottom: 15px;
+            background: #f6f8fa;
+        }
+
+        .generate-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .generate-btn:hover {
+            background: #269f42;
+        }
+
+        .note {
+            background: #dbedff;
+            border: 1px solid #c8e1ff;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 20px;
+            color: #24292e;
+        }
+
+        .note strong {
+            color: #0366d6;
+        }
+
+        .unchanged {
+            color: #6a737d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Option B: Gradual Migration - ElementHandle to Locator</h1>
+        <p class="description">
+            This proposal uses Playwright's modern <strong>Locator API</strong> for read-only message retrieval
+            while keeping <strong>ElementHandle</strong> for complex JavaScript interactions (reaction buttons).
+        </p>
+        <button class="copy-btn" onclick="copyToClipboard()">
+            <svg viewBox="0 0 16 16" fill="currentColor">
+                <path d="M0 6.75C0 5.784.784 5 1.75 5h1.5a.75.75 0 0 1 0 1.5h-1.5a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-1.5a.75.75 0 0 1 1.5 0v1.5A1.75 1.75 0 0 1 9.25 16h-7.5A1.75 1.75 0 0 1 0 14.25Z"/>
+                <path d="M5 1.75C5 .784 5.784 0 6.75 0h7.5C15.216 0 16 .784 16 1.75v7.5A1.75 1.75 0 0 1 14.25 11h-7.5A1.75 1.75 0 0 1 5 9.25Zm1.75-.25a.25.25 0 0 0-.25.25v7.5c0 .138.112.25.25.25h7.5a.25.25 0 0 0 .25-.25v-7.5a.25.25 0 0 0-.25-.25Z"/>
+            </svg>
+            Copy Markdown
+        </button>
+    </div>
+
+    <div class="note">
+        <strong>Strategy:</strong> Use <code>Locator</code> for <code>_get_messages()</code> (read-only, auto-waiting)
+        but keep <code>ElementHandle</code> for <code>_react()</code> (complex JS evaluation for finding reaction buttons).
+    </div>
+
+    <!-- Change 1: _get_messages method -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 1: _get_messages() - Use Locator API
+            <span class="badge">Read Operations</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Before (ElementHandle)</h3>
+                <pre><code><span class="line-number">156</span>async def _get_messages(self, group_name: str = "") -> list[dict]:
+<span class="line-number">157</span>    messages = []
+<span class="line-number">158</span>    max_msgs = self.monitor_settings.max_messages_per_check
+<span class="line-number">159</span>
+<span class="line-number">160</span>    try:
+<span class="line-number">161</span>        <span class="highlight-remove">wrappers = await cast(Any, self._page).query_selector_all(</span>
+<span class="line-number">162</span>        <span class="highlight-remove">    SELECTORS["message_wrapper"]</span>
+<span class="line-number">163</span>        <span class="highlight-remove">)</span>
+<span class="line-number">164</span>        if not wrappers:
+<span class="line-number">165</span>            return messages
+<span class="line-number">166</span>
+<span class="line-number">167</span>        <span class="highlight-remove">for wrapper in reversed(wrappers[-max_msgs:]):</span>
+<span class="line-number">168</span>            try:
+<span class="line-number">169</span>                msg_id = await self._extract_message_id(wrapper, "")
+<span class="line-number">170</span>
+<span class="line-number">171</span>                <span class="highlight-remove">text_el = await wrapper.query_selector(SELECTORS["message_text"])</span>
+<span class="line-number">172</span>                if not text_el:
+<span class="line-number">173</span>                    continue
+<span class="line-number">174</span>                <span class="highlight-remove">text = (await text_el.inner_text()).strip()</span></code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>After (Locator)</h3>
+                <pre><code><span class="line-number">156</span>async def _get_messages(self, group_name: str = "") -> list[dict]:
+<span class="line-number">157</span>    messages = []
+<span class="line-number">158</span>    max_msgs = self.monitor_settings.max_messages_per_check
+<span class="line-number">159</span>
+<span class="line-number">160</span>    try:
+<span class="line-number">161</span>        <span class="highlight-add"># Use Locator API for better auto-waiting and retry</span>
+<span class="line-number">162</span>        <span class="highlight-add">wrapper_locator = self._page.locator(SELECTORS["message_wrapper"])</span>
+<span class="line-number">163</span>        <span class="highlight-add">count = await wrapper_locator.count()</span>
+<span class="line-number">164</span>        <span class="highlight-add">if count == 0:</span>
+<span class="line-number">165</span>            return messages
+<span class="line-number">166</span>
+<span class="line-number">167</span>        <span class="highlight-add"># Iterate using nth() which returns Locator</span>
+<span class="line-number">168</span>        <span class="highlight-add">for i in range(min(count, max_msgs)):</span>
+<span class="line-number">169</span>            try:
+<span class="line-number">170</span>                <span class="highlight-add">msg_locator = wrapper_locator.nth(count - 1 - i)</span>
+<span class="line-number">171</span>                <span class="highlight-add">msg_id = await self._extract_message_id(msg_locator, "")</span>
+<span class="line-number">172</span>
+<span class="line-number">173</span>                <span class="highlight-add"># Chain locators instead of query_selector</span>
+<span class="line-number">174</span>                <span class="highlight-add">text_locator = msg_locator.locator(SELECTORS["message_text"])</span>
+<span class="line-number">175</span>                <span class="highlight-add">if await text_locator.count() == 0:</span>
+<span class="line-number">176</span>                    continue
+<span class="line-number">177</span>                <span class="highlight-add">text = (await text_locator.inner_text()).strip()</span></code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-1" placeholder="Enter your review comment for Change 1 (e.g., 'Consider error handling for nth() out of bounds...')"></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change 2: Message storage -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 2: Message Data Structure - Store Index Instead of Element
+            <span class="badge">Data Structure</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Before</h3>
+                <pre><code><span class="line-number">177</span>                messages.append(
+<span class="line-number">178</span>                    {
+<span class="line-number">179</span>                        "id": msg_id,
+<span class="line-number">180</span>                        "text": text,
+<span class="line-number">181</span>                        <span class="highlight-remove">"element": wrapper,  # ElementHandle</span>
+<span class="line-number">182</span>                        "group": group_name,
+<span class="line-number">183</span>                    }
+<span class="line-number">184</span>                )</code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>After</h3>
+                <pre><code><span class="line-number">178</span>                messages.append(
+<span class="line-number">179</span>                    {
+<span class="line-number">180</span>                        "id": msg_id,
+<span class="line-number">181</span>                        "text": text,
+<span class="line-number">182</span>                        <span class="highlight-add">"index": count - 1 - i,  # Store index for re-finding</span>
+<span class="line-number">183</span>                        <span class="highlight-add">"selector": SELECTORS["message_wrapper"],</span>
+<span class="line-number">184</span>                        "group": group_name,
+<span class="line-number">185</span>                    }
+<span class="line-number">186</span>                )</code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-2" placeholder="Enter your review comment for Change 2..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change 3: _extract_message_id -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 3: _extract_message_id() - Accept Locator
+            <span class="badge">Method Signature</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Before</h3>
+                <pre><code><span class="line-number">200</span>    <span class="highlight-remove">async def _extract_message_id(self, element, text: str) -> str:</span>
+<span class="line-number">201</span>        current_timestamp = int(time.time() * 1000)
+<span class="line-number">202</span>
+<span class="line-number">203</span>        attrs_to_try = [
+<span class="line-number">204</span>            "data-message-id", "data-id", "id",
+<span class="line-number">205</span>            "data-msg-id", "message-id",
+<span class="line-number">206</span>        ]
+<span class="line-number">207</span>
+<span class="line-number">208</span>        for attr in attrs_to_try:
+<span class="line-number">209</span>            <span class="highlight-remove">msg_id = await element.get_attribute(attr)</span>
+<span class="line-number">210</span>            if msg_id:
+<span class="line-number">211</span>                return msg_id</code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>After</h3>
+                <pre><code><span class="line-number">200</span>    <span class="highlight-add">async def _extract_message_id(self, locator, text: str) -> str:</span>
+<span class="line-number">201</span>        current_timestamp = int(time.time() * 1000)
+<span class="line-number">202</span>
+<span class="line-number">203</span>        attrs_to_try = [
+<span class="line-number">204</span>            "data-message-id", "data-id", "id",
+<span class="line-number">205</span>            "data-msg-id", "message-id",
+<span class="line-number">206</span>        ]
+<span class="line-number">207</span>
+<span class="line-number">208</span>        for attr in attrs_to_try:
+<span class="line-number">209</span>            <span class="highlight-add"># Locator.get_attribute() has same API</span>
+<span class="line-number">210</span>            <span class="highlight-add">msg_id = await locator.get_attribute(attr)</span>
+<span class="line-number">211</span>            if msg_id:
+<span class="line-number">212</span>                return msg_id</code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-3" placeholder="Enter your review comment for Change 3..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change 4: Nested element lookup -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 4: Nested Element Lookup with Locator
+            <span class="badge">Element Traversal</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Before</h3>
+                <pre><code><span class="line-number">216</span>        try:
+<span class="line-number">217</span>            <span class="highlight-remove">msg_content = await element.query_selector("[data-message-id]")</span>
+<span class="line-number">218</span>            if msg_content:
+<span class="line-number">219</span>                <span class="highlight-remove">msg_id = await msg_content.get_attribute("data-message-id")</span>
+<span class="line-number">220</span>                if msg_id:
+<span class="line-number">221</span>                    return msg_id
+<span class="line-number">222</span>        except Exception as e:
+<span class="line-number">223</span>            self.log(f"Unexpected error: {str(e)}")</code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>After</h3>
+                <pre><code><span class="line-number">216</span>        try:
+<span class="line-number">217</span>            <span class="highlight-add"># Use locator for nested element</span>
+<span class="line-number">218</span>            <span class="highlight-add">nested_locator = locator.locator("[data-message-id]")</span>
+<span class="line-number">219</span>            <span class="highlight-add">if await nested_locator.count() > 0:</span>
+<span class="line-number">220</span>                <span class="highlight-add">msg_id = await nested_locator.get_attribute("data-message-id")</span>
+<span class="line-number">221</span>                if msg_id:
+<span class="line-number">222</span>                    return msg_id
+<span class="line-number">223</span>        except Exception as e:
+<span class="line-number">224</span>            self.log(f"Unexpected error: {str(e)}")</code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-4" placeholder="Enter your review comment for Change 4..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change 5: _react method - UNCHANGED -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 5: _react() - Keep ElementHandle (Unchanged)
+            <span class="badge">Complex JS</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Current (ElementHandle)</h3>
+                <pre><code><span class="line-number">228</span>    async def _react(self, message_element) -> bool:
+<span class="line-number">229</span>        try:
+<span class="line-number">230</span>            await message_element.hover()
+<span class="line-number">231</span>
+<span class="line-number">232</span>            <span class="highlight"># Complex JS evaluation to find reaction button</span>
+<span class="line-number">263</span>            reaction_btn = await message_element.evaluate_handle(
+<span class="line-number">264</span>                script, message_element
+<span class="line-number">265</span>            )
+<span class="line-number">271</span>            await reaction_btn.evaluate("el => el.click()")</code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>Unchanged</h3>
+                <pre><code><span class="line-number">228</span>    <span class="unchanged">async def _react(self, message_element) -> bool:</span>
+<span class="line-number">229</span>        <span class="unchanged">try:</span>
+<span class="line-number">230</span>            <span class="unchanged">await message_element.hover()</span>
+<span class="line-number">231</span>
+<span class="line-number">232</span>            <span class="highlight-add"># Keep ElementHandle for complex JS evaluation</span>
+<span class="line-number">233</span>            <span class="highlight-add"># Locator doesn't support evaluate_handle()</span>
+<span class="line-number">234</span>            <span class="highlight-add"># Need to convert: await message_locator.element_handle()</span>
+<span class="line-number">235</span>            <span class="highlight-add"># message_element = await message_locator.element_handle()</span>
+<span class="line-number">236</span>            <span class="highlight-add"># But this adds overhead, so keep ElementHandle approach</span>
+<span class="line-number">237</span>
+<span class="line-number">238</span>            <span class="unchanged">reaction_btn = await message_element.evaluate_handle(...)</span></code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-5" placeholder="Enter your review comment for Change 5 (keeping ElementHandle for _react)..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change 6: _process_message_batch - Element retrieval -->
+    <div class="code-section">
+        <div class="section-header">
+            Change 6: _process_message_batch() - Re-find Elements for React
+            <span class="badge">Integration Point</span>
+        </div>
+        <div class="code-comparison">
+            <div class="code-panel old">
+                <h3>Before</h3>
+                <pre><code><span class="line-number">417</span>            for msg_data in to_react:
+<span class="line-number">418</span>                msg_id = msg_data["id"]
+<span class="line-number">419</span>                try:
+<span class="line-number">420</span>                    <span class="highlight-remove">success = await self._react(msg_data["element"])</span>
+<span class="line-number">421</span>                    reaction_results.append((msg_data, success))</code></pre>
+            </div>
+            <div class="code-panel new">
+                <h3>After</h3>
+                <pre><code><span class="line-number">417</span>            for msg_data in to_react:
+<span class="line-number">418</span>                msg_id = msg_data["id"]
+<span class="line-number">419</span>                try:
+<span class="line-number">420</span>                    <span class="highlight-add"># Re-find element using stored index</span>
+<span class="line-number">421</span>                    <span class="highlight-add">msg_locator = self._page.locator(</span>
+<span class="line-number">422</span>                    <span class="highlight-add">    msg_data["selector"]</span>
+<span class="line-number">423</span>                    <span class="highlight-add">).nth(msg_data["index"])</span>
+<span class="line-number">424</span>                    <span class="highlight-add"># Convert to ElementHandle for _react()</span>
+<span class="line-number">425</span>                    <span class="highlight-add">element_handle = await msg_locator.element_handle()</span>
+<span class="line-number">426</span>                    <span class="highlight-add">success = await self._react(element_handle)</span>
+<span class="line-number">427</span>                    reaction_results.append((msg_data, success))</code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-6" placeholder="Enter your review comment for Change 6..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary & Output -->
+    <div class="summary-section">
+        <h2>Generate Review Summary</h2>
+        <p style="margin-bottom: 15px; color: #586069;">
+            Click the button below to generate a Markdown summary of all your review comments.
+        </p>
+        <textarea class="markdown-output" id="markdown-output" readonly placeholder="Click 'Generate Markdown' to see the output..."></textarea>
+        <button class="generate-btn" onclick="generateMarkdown()">Generate Markdown Output</button>
+    </div>
+
+    <script>
+        function generateMarkdown() {
+            const comments = [];
+            for (let i = 1; i <= 6; i++) {
+                const comment = document.getElementById(`comment-${i}`).value.trim();
+                if (comment) {
+                    comments.push({
+                        change: i,
+                        comment: comment
+                    });
+                }
+            }
+
+            let markdown = `# Code Review: Option B - Gradual Migration to Locator API\n\n`;
+            markdown += `**Date:** ${new Date().toLocaleDateString()}\n\n`;
+            markdown += `## Overview\n\n`;
+            markdown += `This review covers the gradual migration from ElementHandle to Playwright's Locator API. `;
+            markdown += `The strategy uses Locators for read-only operations (message retrieval) while keeping `;
+            markdown += `ElementHandle for complex JavaScript interactions (reaction buttons).\n\n`;
+
+            if (comments.length === 0) {
+                markdown += `*No comments provided.*\n`;
+            } else {
+                markdown += `## Review Comments\n\n`;
+                comments.forEach(({change, comment}) => {
+                    const changeTitles = {
+                        1: "Change 1: _get_messages() - Use Locator API",
+                        2: "Change 2: Message Data Structure",
+                        3: "Change 3: _extract_message_id() - Accept Locator",
+                        4: "Change 4: Nested Element Lookup",
+                        5: "Change 5: _react() - Keep ElementHandle",
+                        6: "Change 6: _process_message_batch() - Element Retrieval"
+                    };
+                    markdown += `### ${changeTitles[change]}\n\n`;
+                    markdown += `${comment}\n\n`;
+                });
+            }
+
+            markdown += `\n## Summary\n\n`;
+            markdown += `- **Total Changes Reviewed:** 6\n`;
+            markdown += `- **Comments Provided:** ${comments.length}\n`;
+            markdown += `- **Migration Strategy:** Gradual (Option B)\n`;
+            markdown += `- **Risk Level:** Medium (requires careful index management)\n`;
+
+            document.getElementById('markdown-output').value = markdown;
+        }
+
+        function copyToClipboard() {
+            const output = document.getElementById('markdown-output');
+            if (!output.value) {
+                alert('Please generate the markdown first by clicking "Generate Markdown Output"');
+                return;
+            }
+
+            output.select();
+            document.execCommand('copy');
+
+            const btn = document.querySelector('.copy-btn');
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `
+                <svg viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/>
+                </svg>
+                Copied!
+            `;
+            btn.style.background = '#28a745';
+
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                btn.style.background = '#0366d6';
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

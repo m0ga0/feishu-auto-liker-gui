@@ -31,10 +31,10 @@ class InMemoryInternalSettingsRepository(IInternalSettingsRepository):
             raise ConfigError("initial yaml setting file missing")
 
         self.__initial_file_repo = YamlInternalSettingsRepository(file_path)
-        self.__settings = self.__initial_file_repo.get()
+        self.__settings: InternalSettings = self.__initial_file_repo.get()
 
     def get(self) -> InternalSettings:
         return self.__settings
 
     def save(self, settings: InternalSettings):
-        self.__settings = settings.model_dump()
+        self.__settings = settings

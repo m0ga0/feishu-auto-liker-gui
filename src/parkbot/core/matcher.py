@@ -1,32 +1,50 @@
+import logging
 import re
-from typing import Callable, List, Optional, Pattern, Union
+from typing import List, Optional, Pattern
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
 
 
 class PatternMatcher:
-    def __init__(self, patterns: List[str], log_callback: Optional[Callable] = None):
-        self._compiled: List[tuple[bool, Union[Pattern, str]]] = []
-        self.log = log_callback or (lambda msg: None)
+    def __init__(self, patterns: Optional[List[str]] = None):
+        self._compiled: List[Pattern] = []
+        patterns = patterns or []
+
+        successful_compiles = 0
+        failed_patterns = []
+
         for raw in patterns:
-            if raw.startswith("re:"):
-                try:
-                    self._compiled.append((True, re.compile(raw[3:], re.IGNORECASE)))
-                except re.error:
-                    pass
+            try:
+                # Always treat patterns as regex (case-insensitive)
+                compiled = re.compile(raw, re.IGNORECASE)
+                self._compiled.append(compiled)
+                successful_compiles += 1
+            except re.error as e:
+                failed_patterns.append((raw, str(e)))
+
+        # Log warnings for failed compilations
+        if failed_patterns:
+            if successful_compiles == 0 and len(patterns) > 0:
+                # Only pattern failed to compile
+                raw, error = failed_patterns[0]
+                logger.error(
+                    f"Pattern compilation failed and no valid patterns remain. "
+                    f"Pattern: '{raw}', Error: {error}. "
+                    f"Please fix your settings."
+                )
             else:
-                self._compiled.append((False, raw))
+                # Some patterns succeeded, log warnings for failures
+                for raw, error in failed_patterns:
+                    logger.warning(
+                        f"Pattern compilation failed, skipping: '{raw}', Error: {error}"
+                    )
 
     def matches(self, text: str) -> bool:
-        for is_regex, pattern in self._compiled:
-            is_match = False
-            if is_regex:
-                compiled_pattern: re.Pattern = pattern  # type: ignore
-                if compiled_pattern.search(text):
-                    is_match = True
-            else:
-                literal_pattern: str = pattern  # type: ignore
-                if literal_pattern in text:
-                    is_match = True
-
-            if is_match:
+        for compiled_pattern in self._compiled:
+            if compiled_pattern.search(text):
+                logger.info(
+                    f"Match found: text='{text}' matched pattern='{compiled_pattern.pattern}'"
+                )
                 return True
         return False
