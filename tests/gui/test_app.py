@@ -288,12 +288,12 @@ class TestApp:
     ):
         app = App(app_settings_repo=mock_config_repo, message_repo=mock_message_repo)
         # No bot_state to reset anymore, just verify it doesn't crash
-        app._log_to_ui = MagicMock()
+        app._log_to_ui = MagicMock()  # ty: ignore[invalid-assignment]
 
         app._reset_stats()
 
         # Should log a message
-        app._log_to_ui.assert_called_once()
+        app._log_to_ui.assert_called_once()  # ty: ignore[unresolved-attribute]
 
     @patch("parkbot.gui.app.SettingsTab")
     @patch("parkbot.gui.app.InstallTab")

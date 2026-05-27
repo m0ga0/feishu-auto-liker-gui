@@ -131,8 +131,8 @@ class TestGUITimer:
 
         app._start_bot()
 
-        assert app.bot.is_running is True
-        assert app.bot.start_time is not None
+        assert app.bot.is_running is True  # ty: ignore[unresolved-attribute]
+        assert app.bot.start_time is not None  # ty: ignore[unresolved-attribute]
 
     def test_stop_button_resets_timer(self):
         """点击 Stop 后 timer 重置为 0"""
@@ -143,8 +143,8 @@ class TestGUITimer:
 
         app._stop_bot()
 
-        assert app.bot.get_uptime() == "0秒"
-        assert app.bot.is_running is False
+        assert app.bot.get_uptime() == "0秒"  # ty: ignore[unresolved-attribute]
+        assert app.bot.is_running is False  # ty: ignore[unresolved-attribute]
 
     def test_multiple_start_stop_cycle(self):
         """多次 start/stop 循环"""
@@ -153,20 +153,20 @@ class TestGUITimer:
         # 第一次 start
         app._start_bot()
         time.sleep(1)
-        t1 = app.bot.get_uptime()
+        t1 = app.bot.get_uptime()  # ty: ignore[unresolved-attribute]
 
         # stop
         app._stop_bot()
-        assert app.bot.get_uptime() == "0秒"
+        assert app.bot.get_uptime() == "0秒"  # ty: ignore[unresolved-attribute]
 
         # 第二次 start
         app._start_bot()
         time.sleep(1)
-        t2 = app.bot.get_uptime()
+        t2 = app.bot.get_uptime()  # ty: ignore[unresolved-attribute]
 
         # stop 后也应该为 0
         app._stop_bot()
-        assert app.bot.get_uptime() == "0秒"
+        assert app.bot.get_uptime() == "0秒"  # ty: ignore[unresolved-attribute]
 
         # 两次运行都应该是非 0
         assert t1 != "0秒"
@@ -179,7 +179,7 @@ class TestGUITimer:
         app._start_bot()
         time.sleep(2)
 
-        uptime = app.bot.get_uptime()
+        uptime = app.bot.get_uptime()  # ty: ignore[unresolved-attribute]
         # 提取秒数 (可能是 "2秒" 或 "0分2秒")
         seconds = int(uptime.replace("秒", "").replace("分", " ").split()[-1])
         assert seconds >= 2
@@ -190,10 +190,10 @@ class TestGUITimer:
 
         app._start_bot()
         time.sleep(1)
-        t1 = app.bot.get_uptime()
+        t1 = app.bot.get_uptime()  # ty: ignore[unresolved-attribute]
 
         time.sleep(1)
-        t2 = app.bot.get_uptime()
+        t2 = app.bot.get_uptime()  # ty: ignore[unresolved-attribute]
 
         # t2 应该大于 t1
         s1 = int(t1.replace("秒", "").replace("分", " ").split()[-1])
@@ -205,9 +205,9 @@ class TestGUITimer:
         app = MockApp()
 
         app._start_bot()
-        app.bot.match_count = 5
-        app.bot.reaction_count = 4
-        app.bot.fail_count = 1
+        app.bot.match_count = 5  # ty: ignore[invalid-assignment]
+        app.bot.reaction_count = 4  # ty: ignore[invalid-assignment]
+        app.bot.fail_count = 1  # ty: ignore[invalid-assignment]
         time.sleep(1)
 
         app._stop_bot()

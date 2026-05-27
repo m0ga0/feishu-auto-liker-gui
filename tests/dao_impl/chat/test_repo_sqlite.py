@@ -7,6 +7,7 @@ from datetime import datetime
 from sqlmodel import create_engine, SQLModel
 from parkbot.chat.models import FeishuMessage
 from parkbot.dao_impl.chat.repo_impls import SqliteFeishuMessageRepository
+from parkbot.utils.datetime_utils import utcnow
 
 
 class TestSqliteFeishuMessageRepository:
@@ -150,7 +151,7 @@ class TestSqliteFeishuMessageRepository:
 
     def test_message_with_all_fields(self, repo):
         """Test saving message with all fields populated"""
-        now = datetime.utcnow()
+        now = utcnow()
         msg = FeishuMessage(
             id="msg_full",
             text="Full message",
@@ -241,9 +242,9 @@ class TestSqliteFeishuMessageRepository:
         msg = FeishuMessage(id="msg1", text="React test")
         repo.save_batch([msg])
 
-        before = datetime.utcnow()
+        before = utcnow()
         repo.mark_reacted_batch(["msg1"])
-        after = datetime.utcnow()
+        after = utcnow()
 
         result = repo.get_by_ids(["msg1"])
         assert before <= result["msg1"].reacted_at <= after

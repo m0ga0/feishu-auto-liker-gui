@@ -6,6 +6,7 @@ class InstallTab:
     """Install tab control class."""
 
     def __init__(self, tab, on_check_env, on_open_folder, app_settings):
+        self._tab = tab
         self._on_check_env = on_check_env
         self._on_open_folder = on_open_folder
 
@@ -64,23 +65,38 @@ class InstallTab:
         if hasattr(self, "_install_callback"):
             self._install_callback()
 
+    def _safe_update(self, widget_update_func):
+        """Schedule GUI update on main thread (thread-safe)."""
+        # Use the tab widget's after method to schedule on main thread
+        self._tab.after(0, widget_update_func)
+
     def update_status(self, key, status):
         if key in self.install_items:
-            self.install_items[key].configure(text=status)
+
+            def do_update():
+                self.install_items[key].configure(text=status)
+
+            self._safe_update(do_update)
 
     def set_install_callback(self, callback):
         self._install_callback = callback
 
     def log_message(self, msg):
-        self.install_log.configure(state="normal")
-        self.install_log.insert("end", f"{msg}\n")
-        self.install_log.see("end")
-        self.install_log.configure(state="disabled")
+        def do_log():
+            self.install_log.configure(state="normal")
+            self.install_log.insert("end", f"{msg}\n")
+            self.install_log.see("end")
+            self.install_log.configure(state="disabled")
+
+        self._safe_update(do_log)
 
     def set_button_state(self, enabled, text=None):
-        if enabled:
-            self.install_btn.configure(state="normal")
-        else:
-            self.install_btn.configure(state="disabled")
-        if text:
-            self.install_btn.configure(text=text)
+        def do_update():
+            if enabled:
+                self.install_btn.configure(state="normal")
+            else:
+                self.install_btn.configure(state="disabled")
+            if text:
+                self.install_btn.configure(text=text)
+
+        self._safe_update(do_update)

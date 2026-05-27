@@ -191,12 +191,11 @@ class App(ctk.CTk):
 
     def _log_final_stats(self):
         uptime = self._calculate_uptime()
-        self._log_to_ui(
-            f"📊 本次运行统计 - 匹配: {self.bot.match_count} | "
-            f"点赞: {self.bot.reaction_count} | "
-            f"失败: {self.bot.fail_count} | "
-            f"时长: {uptime}"
-        )
+        if self.bot:
+            stats = f"匹配: {self.bot.match_count} | 点赞: {self.bot.reaction_count} | 失败: {self.bot.fail_count}"
+        else:
+            stats = "机器人未启动"
+        self._log_to_ui(f"📊 本次运行统计 - {stats} | 时长: {uptime}")
 
     def _stop_bot(self):
         if self.bot:

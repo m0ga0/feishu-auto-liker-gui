@@ -48,3 +48,17 @@ class PatternMatcher:
                 )
                 return True
         return False
+
+    def get_matching_pattern(self, text: str) -> Optional[str]:
+        """Return the first pattern that matches the text, or None if no match.
+
+        Args:
+            text: The text to match against patterns
+
+        Returns:
+            The pattern string that matched, or None if no match
+        """
+        for compiled_pattern in self._compiled:
+            if compiled_pattern.search(text):
+                return compiled_pattern.pattern
+        return None

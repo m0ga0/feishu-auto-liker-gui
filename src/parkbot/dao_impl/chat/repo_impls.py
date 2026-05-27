@@ -3,10 +3,11 @@ import json
 from pathlib import Path
 from typing import List, Optional, Dict, Iterator
 from datetime import datetime
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 from .dao import IFeishuMessageRepository
 from parkbot.chat.models import FeishuMessage
 from .models_impls import SqliteFeishuMessage
+from parkbot.utils.datetime_utils import utcnow
 
 
 class SqliteFeishuMessageRepository(IFeishuMessageRepository):
@@ -24,7 +25,7 @@ class SqliteFeishuMessageRepository(IFeishuMessageRepository):
             batch = message_ids[i : i + self.BATCH_SIZE]
             with Session(self.engine) as session:
                 statement = select(SqliteFeishuMessage).where(
-                    SqliteFeishuMessage.id.in_(batch)
+                    col(SqliteFeishuMessage.id).in_(batch)
                 )
                 db_messages = session.exec(statement).all()
                 # Map found messages
@@ -48,13 +49,13 @@ class SqliteFeishuMessageRepository(IFeishuMessageRepository):
 
     def mark_reacted_batch(self, message_ids: List[str]) -> int:
         updated_count = 0
-        now = datetime.utcnow()
+        now = utcnow()
 
         for i in range(0, len(message_ids), self.BATCH_SIZE):
             batch = message_ids[i : i + self.BATCH_SIZE]
             with Session(self.engine) as session:
                 statement = select(SqliteFeishuMessage).where(
-                    SqliteFeishuMessage.id.in_(batch)
+                    col(SqliteFeishuMessage.id).in_(batch)
                 )
                 db_messages = session.exec(statement).all()
                 for db_msg in db_messages:
@@ -76,7 +77,7 @@ class SqliteFeishuMessageRepository(IFeishuMessageRepository):
             batch = message_ids[i : i + self.BATCH_SIZE]
             with Session(self.engine) as session:
                 statement = select(SqliteFeishuMessage.id).where(
-                    SqliteFeishuMessage.id.in_(batch)
+                    col(SqliteFeishuMessage.id).in_(batch)
                 )
                 found_ids = set(session.exec(statement).all())
                 for msg_id in batch:
@@ -91,7 +92,7 @@ class SqliteFeishuMessageRepository(IFeishuMessageRepository):
             batch = message_ids[i : i + self.BATCH_SIZE]
             with Session(self.engine) as session:
                 statement = select(SqliteFeishuMessage).where(
-                    SqliteFeishuMessage.id.in_(batch)
+                    col(SqliteFeishuMessage.id).in_(batch)
                 )
                 for db_msg in session.exec(statement):
                     yield db_msg.to_domain()
@@ -131,11 +132,11 @@ class FileFeishuMessageRepository(IFeishuMessageRepository):
 
     def save_batch(self, messages: List[FeishuMessage]) -> None:
         for msg in messages:
-            self._cache[msg.id] = json.loads(msg.json())
+            self._cache[msg.id] = json.loads(msg.model_dump_json())
         self._save()
 
     def mark_reacted_batch(self, message_ids: List[str]) -> int:
-        now = datetime.utcnow().isoformat()
+        now = utcnow().isoformat()
         count = 0
         for msg_id in message_ids:
             if msg_id in self._cache:
@@ -180,7 +181,7 @@ class InMemoryFeishuMessageRepository(IFeishuMessageRepository):
             self._storage[msg.id] = msg
 
     def mark_reacted_batch(self, message_ids: List[str]) -> int:
-        now = datetime.utcnow()
+        now = utcnow()
         count = 0
         for msg_id in message_ids:
             msg = self._storage.get(msg_id)

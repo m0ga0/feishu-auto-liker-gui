@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket 5: Handle Temporary Message IDs</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; padding: 20px; line-height: 1.6; }
+
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; }
+        .header h1 { color: #333; margin-bottom: 10px; }
+        .header .description { color: #666; margin-bottom: 15px; }
+
+        .code-section { background: white; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .section-header { background: #f6f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e4e8; font-weight: 600; color: #24292e; display: flex; align-items: center; gap: 10px; }
+        .section-header .badge { background: #ffd33d; color: #24292e; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .section-header .badge.bug { background: #d73a49; color: white; }
+        .section-header .badge.fix { background: #28a745; color: white; }
+        .section-header .badge.refactor { background: #0366d6; color: white; }
+
+        .code-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+
+        .code-panel { padding: 20px; overflow-x: auto; }
+        .code-panel.old { background: #fff5f5; border-right: 1px solid #e1e4e8; }
+        .code-panel.old h3 { color: #d73a49; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .code-panel.new { background: #f0fff4; }
+        .code-panel.new h3 { color: #28a745; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; line-height: 1.5; }
+        code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+
+        .comment-section { padding: 20px; background: #fafbfc; border-top: 1px solid #e1e4e8; }
+        .comment-input-wrapper { display: flex; gap: 10px; align-items: flex-start; }
+        .comment-input { flex: 1; padding: 10px; border: 1px solid #d1d5da; border-radius: 6px; font-size: 14px; resize: vertical; min-height: 60px; font-family: inherit; }
+        .comment-input:focus { outline: none; border-color: #0366d6; box-shadow: 0 0 0 3px rgba(3,102,214,0.1); }
+
+        .highlight-remove { background: #ffdce0; color: #c62828; text-decoration: line-through; padding: 2px 4px; border-radius: 3px; }
+        .highlight-add { background: #cdffd8; color: #2e7d32; padding: 2px 4px; border-radius: 3px; }
+
+        .summary-section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .summary-section h2 { color: #24292e; margin-bottom: 15px; }
+
+        .file-path { background: #f6f8fa; padding: 4px 8px; border-radius: 3px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: #24292e; border: 1px solid #e1e4e8; }
+
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: #0366d6; color: white; }
+        .btn-primary:hover { background: #0256c7; }
+
+        .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+
+        .output-container { position: relative; }
+        #final-output { width: 100%; min-height: 300px; padding: 16px; border: 1px solid #e1e4e8; border-radius: 6px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; background: #f6f8fa; resize: vertical; }
+        .copy-btn-corner { position: absolute; top: 8px; right: 8px; background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; opacity: 0.9; transition: opacity 0.2s; }
+        .copy-btn-corner:hover { opacity: 1; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Ticket 5: Handle Temporary Message IDs</h1>
+        <p class="description">Review and comment on the implementation</p>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge bug">BUG</span>
+            Issue Description
+        </div>
+        <div style="padding: 20px;">
+            <p>Messages processed twice - once with temporary ID (10-char alphanumeric) and once with real ID (19-digit numeric).</p>
+            <p style="margin-top: 10px;"><strong>Example:</strong></p>
+            <pre style="margin-top: 10px;">[TrCbtDNOPi]:出明天 -> True      # Temporary ID processed
+[7643842845769469666]:出明天 -> True  # Same message processed again!</pre>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-issue" placeholder="Add your comments about this issue..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge refactor">REFACTOR 1</span>
+            Simplified Regex Pattern
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py</p>
+
+            <div class="code-comparison">
+                <div class="code-panel old">
+                    <h3>Old (Nested If Clauses)</h3>
+                    <pre><code>def is_temporary_message_id(message_id):
+    if not message_id:
+        return True
+
+    <span class="highlight-remove"># Nested if clauses - not clean</span>
+    <span class="highlight-remove">if len(message_id) == 10 and re.match(r'^[a-zA-Z0-9]+$', message_id):</span>
+        <span class="highlight-remove">if re.search(r'[a-zA-Z]', message_id):</span>
+            <span class="highlight-remove">return True</span>
+
+    return False</code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>New (Single Regex)</h3>
+                    <pre><code>@staticmethod
+def is_temporary_message_id(message_id):
+    if not message_id:
+        return True
+
+    <span class="highlight-add"># Single regex with lookahead</span>
+    <span class="highlight-add">return bool(re.match(</span>
+        <span class="highlight-add">r'^(?=.*[a-zA-Z])[a-zA-Z0-9]{10}$', </span>
+        <span class="highlight-add">message_id))</span></code></pre>
+                </div>
+            </div>
+
+            <p style="margin-top: 15px;"><strong>Improvements:</strong></p>
+            <ul style="margin-left: 20px; margin-top: 5px;">
+                <li>Single regex pattern instead of nested if clauses</li>
+                <li>Uses positive lookahead <code>(?=.*[a-zA-Z])</code></li>
+                <li>Cleaner, more maintainable code</li>
+            </ul>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-refactor1" placeholder="Add your comments about the regex refactoring..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge refactor">REFACTOR 2</span>
+            Object-Oriented Design
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py</p>
+
+            <div class="code-comparison">
+                <div class="code-panel old">
+                    <h3>Old (Global Function)</h3>
+                    <pre><code><span class="highlight-remove"># Global scope - NOT object-oriented</span>
+<span class="highlight-remove">def is_temporary_message_id(message_id):</span>
+    <span class="highlight-remove">...</span>
+
+class RPABotCore:
+    ...
+    <span class="highlight-remove">if is_temporary_message_id(msg_id):</span>
+        <span class="highlight-remove">...</span></code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>New (Static Method)</h3>
+                    <pre><code>class RPABotCore:
+    ...
+    <span class="highlight-add">@staticmethod</span>
+    <span class="highlight-add">def is_temporary_message_id(message_id):</span>
+        <span class="highlight-add">...</span>
+
+    <span class="highlight-add">if self.is_temporary_message_id(msg_id):</span>
+        <span class="highlight-add">...</span></code></pre>
+                </div>
+            </div>
+
+            <p style="margin-top: 15px;"><strong>Benefits:</strong></p>
+            <ul style="margin-left: 20px; margin-top: 5px;">
+                <li>Better encapsulation: function belongs to the class</li>
+                <li>No global namespace pollution</li>
+                <li>Object-oriented design principles</li>
+                <li>Easier testing</li>
+            </ul>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-refactor2" placeholder="Add your comments about the OOP refactoring..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge fix">IMPLEMENTATION</span>
+            Skip Logic
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py - _get_messages()</p>
+
+            <div class="code-panel new" style="background: #f0fff4;">
+                <h3 style="color: #28a745;">Usage</h3>
+                <pre><code>for wrapper in reversed(wrappers[-max_msgs:]):
+    try:
+        msg_id = await self._extract_message_id(wrapper, "")
+
+        # Skip temporary IDs
+        <span class="highlight-add">if self.is_temporary_message_id(msg_id):</span>
+            <span class="highlight-add">self.log(f"⏳ 跳过临时消息 ID: {msg_id}")</span>
+            <span class="highlight-add">continue</span>
+
+        # Process message...</code></pre>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-implementation" placeholder="Add your comments about the implementation..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <h2>Gather All Comments</h2>
+        <p style="margin-bottom: 15px;">Click "Generate Output" to gather all your comments into markdown format.</p>
+
+        <div class="output-header">
+            <button class="btn btn-primary" onclick="generateOutput()">
+                Generate Output
+            </button>
+        </div>
+
+        <div class="output-container">
+            <button class="copy-btn-corner" onclick="copyOutput()" title="Copy to clipboard">
+                Copy
+            </button>
+            <textarea id="final-output" placeholder="Generated markdown will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        function generateOutput() {
+            const sections = [
+                { id: 'comment-issue', title: 'Issue Description' },
+                { id: 'comment-refactor1', title: 'Refactor 1: Regex Pattern' },
+                { id: 'comment-refactor2', title: 'Refactor 2: OOP Design' },
+                { id: 'comment-implementation', title: 'Implementation' }
+            ];
+
+            let markdown = '# Review: Ticket 5 - Temporary Message IDs\n\n';
+            markdown += '**Review Date:** ' + new Date().toISOString().split('T')[0] + '\n\n';
+
+            let hasComments = false;
+            sections.forEach(section => {
+                const element = document.getElementById(section.id);
+                const comment = element.value.trim();
+
+                if (comment) {
+                    hasComments = true;
+                    markdown += '## ' + section.title + '\n\n';
+                    markdown += comment + '\n\n';
+                }
+            });
+
+            if (!hasComments) {
+                markdown += '*No comments provided.*\n\n';
+            }
+
+            markdown += '---\n\n';
+            markdown += '**Action:** Please review and approve or provide feedback.\n';
+
+            document.getElementById('final-output').value = markdown;
+        }
+
+        function copyOutput() {
+            const output = document.getElementById('final-output');
+            if (!output.value) {
+                generateOutput();
+            }
+            output.select();
+            output.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(output.value).then(function() {
+                const btn = document.querySelector('.copy-btn-corner');
+                btn.textContent = 'Copied!';
+                setTimeout(function() {
+                    btn.textContent = 'Copy';
+                }, 2000);
+            }).catch(function(err) {
+                alert('Failed to copy. Please copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

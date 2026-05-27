@@ -30,6 +30,13 @@ class TestInstallTab:
         on_open_folder = MagicMock()
         app_settings = {}
 
+        # Mock after() to execute callback immediately for testing
+        def mock_after(delay, callback):
+            if callable(callback):
+                callback()
+
+        tab.after = mock_after
+
         with patch("threading.Thread"):
             install = InstallTab(tab, on_check_env, on_open_folder, app_settings)
 
@@ -42,7 +49,7 @@ class TestInstallTab:
         # Test update_status
         install.update_status("python", "✅ 已安装")
 
-        install.install_items["python"].configure.assert_called_with(text="✅ 已安装")
+        install.install_items["python"].configure.assert_called_with(text="✅ 已安装")  # ty: ignore[unresolved-attribute]
 
     def test_update_status_unknown_key(self):
         """测试未知 key 不报错"""
@@ -63,6 +70,13 @@ class TestInstallTab:
         on_check_env = MagicMock()
         on_open_folder = MagicMock()
         app_settings = {}
+
+        # Mock after() to execute callback immediately for testing
+        def mock_after(delay, callback):
+            if callable(callback):
+                callback()
+
+        tab.after = mock_after
 
         with patch("threading.Thread"):
             install = InstallTab(tab, on_check_env, on_open_folder, app_settings)
@@ -127,6 +141,13 @@ class TestInstallTab:
         on_open_folder = MagicMock()
         app_settings = {}
 
+        # Mock after() to execute callback immediately for testing
+        def mock_after(delay, callback):
+            if callable(callback):
+                callback()
+
+        tab.after = mock_after
+
         with patch("threading.Thread"):
             install = InstallTab(tab, on_check_env, on_open_folder, app_settings)
 
@@ -143,6 +164,13 @@ class TestInstallTab:
         on_open_folder = MagicMock()
         app_settings = {}
 
+        # Mock after() to execute callback immediately for testing
+        def mock_after(delay, callback):
+            if callable(callback):
+                callback()
+
+        tab.after = mock_after
+
         with patch("threading.Thread"):
             install = InstallTab(tab, on_check_env, on_open_folder, app_settings)
 
@@ -158,6 +186,13 @@ class TestInstallTab:
         on_check_env = MagicMock()
         on_open_folder = MagicMock()
         app_settings = {}
+
+        # Mock after() to execute callback immediately for testing
+        def mock_after(delay, callback):
+            if callable(callback):
+                callback()
+
+        tab.after = mock_after
 
         with patch("threading.Thread"):
             install = InstallTab(tab, on_check_env, on_open_folder, app_settings)

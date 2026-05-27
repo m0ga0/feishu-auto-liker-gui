@@ -172,7 +172,7 @@ class TestRPABotCoreSyncInterface:
 
         # Should not be able to set directly (property is read-only)
         with pytest.raises(AttributeError):
-            bot.is_running = True
+            bot.is_running = True  # ty: ignore[invalid-assignment]
 
     def test_message_repo_stored(self):
         """消息仓库被正确存储"""
