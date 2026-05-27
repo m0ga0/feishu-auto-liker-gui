@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Plan: target_pattern Should Store Actual Pattern String</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; background: #f5f5f5; padding: 20px; line-height: 1.6; }
+
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); position: relative; }
+        .header h1 { color: #333; margin-bottom: 10px; }
+        .header .description { color: #666; margin-bottom: 15px; }
+
+        .code-section { background: white; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); overflow: hidden; }
+
+        .section-header { background: #f6f8fa; padding: 15px 20px; border-bottom: 1px solid #e1e4e8; font-weight: 600; color: #24292e; display: flex; align-items: center; gap: 10px; }
+        .section-header .badge { background: #ffd33d; color: #24292e; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .section-header .badge.bug { background: #d73a49; color: white; }
+        .section-header .badge.fix { background: #28a745; color: white; }
+
+        .code-comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+
+        .code-panel { padding: 20px; overflow-x: auto; }
+        .code-panel.old { background: #fff5f5; border-right: 1px solid #e1e4e8; }
+        .code-panel.old h3 { color: #d73a49; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .code-panel.new { background: #f0fff4; }
+        .code-panel.new h3 { color: #28a745; margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        pre { background: #f6f8fa; border: 1px solid #e1e4e8; border-radius: 6px; padding: 16px; overflow-x: auto; font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 13px; line-height: 1.5; }
+        code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+
+        .comment-section { padding: 20px; background: #fafbfc; border-top: 1px solid #e1e4e8; }
+        .comment-input-wrapper { display: flex; gap: 10px; align-items: flex-start; }
+        .comment-input { flex: 1; padding: 10px; border: 1px solid #d1d5da; border-radius: 6px; font-size: 14px; resize: vertical; min-height: 60px; font-family: inherit; }
+        .comment-input:focus { outline: none; border-color: #0366d6; box-shadow: 0 0 0 3px rgba(3,102,214,0.1); }
+
+        .highlight { background: #fff3cd; padding: 2px 4px; border-radius: 3px; }
+        .highlight-remove { background: #ffdce0; padding: 2px 4px; border-radius: 3px; }
+        .highlight-add { background: #cdffd8; padding: 2px 4px; border-radius: 3px; }
+
+        .summary-section { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .summary-section h2 { color: #24292e; margin-bottom: 15px; }
+
+        .file-path { background: #f6f8fa; padding: 4px 8px; border-radius: 3px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: #24292e; border: 1px solid #e1e4e8; }
+
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        th, td { border: 1px solid #e1e4e8; padding: 12px; text-align: left; }
+        th { background: #f6f8fa; font-weight: 600; }
+        tr:nth-child(even) { background: #fafbfc; }
+
+        .info-box { background: #dbedff; border: 1px solid #c8e1ff; border-radius: 6px; padding: 15px; margin: 15px 0; }
+        .info-box p { margin: 0; color: #24292e; }
+
+        /* Output section styles */
+        .output-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: #0366d6; color: white; }
+        .btn-primary:hover { background: #0256c7; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn svg { width: 16px; height: 16px; }
+
+        .output-container { position: relative; }
+        #final-output { width: 100%; min-height: 300px; padding: 16px; border: 1px solid #e1e4e8; border-radius: 6px; font-family: 'SFMono-Regular', Consolas, monospace; font-size: 13px; background: #f6f8fa; resize: vertical; }
+        .copy-btn-corner { position: absolute; top: 8px; right: 8px; background: #28a745; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; display: flex; align-items: center; gap: 4px; opacity: 0.9; transition: opacity 0.2s; }
+        .copy-btn-corner:hover { opacity: 1; }
+        .copy-btn-corner svg { width: 14px; height: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Fix Plan: target_pattern Should Store Actual Pattern String</h1>
+        <p class="description">Review and comment on the fix plan before implementation</p>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge bug">BUG</span>
+            Issue Description
+        </div>
+        <div style="padding: 20px;">
+            <p><strong>Current Behavior:</strong> The <code>target_pattern</code> column contains hardcoded strings "matched" or "checked" instead of the actual regex pattern that was used.</p>
+            <p style="margin-top: 10px;"><strong>Expected Behavior:</strong> Store the actual pattern string (e.g., "re:.*(出|整出).*(车位|停车位).*") that was checked or matched against the message text.</p>
+
+            <table style="margin-top: 15px;">
+                <tr><th>target_pattern</th><th>Count</th></tr>
+                <tr><td>checked</td><td>54</td></tr>
+                <tr><td>matched</td><td>5</td></tr>
+            </table>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-issue" placeholder="Add your comments about this issue..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge">ANALYSIS</span>
+            Root Cause
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py lines 482, 485, and 506</p>
+
+            <div class="code-comparison">
+                <div class="code-panel old">
+                    <h3>Current Code (Wrong)</h3>
+                    <pre><code># Line 482 - When reaction succeeds
+msg.mark_processed(
+    is_reacted=True,
+    <span class="highlight-remove">target_pattern="matched"</span>
+)
+
+# Line 485 - When reaction fails
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-remove">target_pattern="matched"</span>
+)
+
+# Line 506 - No match
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-remove">target_pattern="checked"</span>
+)</code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>Should Be</h3>
+                    <pre><code># Line 482 - When reaction succeeds
+msg.mark_processed(
+    is_reacted=True,
+    <span class="highlight-add">target_pattern=actual_pattern</span>
+)
+
+# Line 485 - When reaction fails
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-add">target_pattern=actual_pattern</span>
+)
+
+# Line 506 - No match
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-add">target_pattern=checked_pattern</span>
+)</code></pre>
+                </div>
+            </div>
+
+            <div class="info-box">
+                <p><strong>Why This Happened:</strong> PatternMatcher.matches() only returns True/False, not which pattern matched. The code was written with placeholder strings that were never replaced.</p>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-root-cause" placeholder="Add your comments about the root cause..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge fix">STEP 1</span>
+            Add Method to PatternMatcher
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/matcher.py</p>
+            <pre style="margin-bottom: 15px;"><code>def get_matching_pattern(self, text: str) -> Optional[str]:
+    """Return the first pattern that matches the text, or None if no match."""
+    for compiled_pattern in self._compiled:
+        if compiled_pattern.search(text):
+            return compiled_pattern.pattern  # Return the original pattern string
+    return None</code></pre>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-step1" placeholder="Add your comments about Step 1..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge fix">STEP 2</span>
+            Update Message Processing
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py (Lines 410-421)</p>
+
+            <div class="code-comparison">
+                <div class="code-panel old">
+                    <h3>Old Code</h3>
+                    <pre><code>for msg_data in messages:
+    msg_id = msg_data["id"]
+    msg_text = msg_data["text"]
+
+    # Only returns True/False
+    is_match = self.matcher.matches(msg_text)
+
+    if is_match:
+        self.match_count += 1
+        # No pattern info stored!
+        matched_messages.append(msg_data)
+    else:
+        no_match_messages.append(msg_data)</code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>New Code</h3>
+                    <pre><code>for msg_data in messages:
+    msg_id = msg_data["id"]
+    msg_text = msg_data["text"]
+
+    <span class="highlight-add"># Get actual pattern that matched</span>
+    <span class="highlight-add">matched_pattern = self.matcher.get_matching_pattern(msg_text)</span>
+    <span class="highlight-add">is_match = matched_pattern is not None</span>
+
+    if is_match:
+        self.match_count += 1
+        <span class="highlight-add"># Store the actual pattern</span>
+        <span class="highlight-add">msg_data["matched_pattern"] = matched_pattern</span>
+        matched_messages.append(msg_data)
+    else:
+        no_match_messages.append(msg_data)</code></pre>
+                </div>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-step2" placeholder="Add your comments about Step 2..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge fix">STEP 3</span>
+            Update mark_processed Calls
+        </div>
+        <div style="padding: 20px;">
+            <p class="file-path" style="margin-bottom: 15px;">src/parkbot/core/bot.py</p>
+
+            <div class="code-comparison">
+                <div class="code-panel old">
+                    <h3>Line 482 & 485 (OLD)</h3>
+                    <pre><code>msg.mark_processed(
+    is_reacted=True,
+    <span class="highlight-remove">target_pattern="matched"</span>
+)
+
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-remove">target_pattern="matched"</span>
+)</code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>Line 482 & 485 (NEW)</h3>
+                    <pre><code>msg.mark_processed(
+    is_reacted=True,
+    <span class="highlight-add">target_pattern=msg_data.get("matched_pattern")</span>
+)
+
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-add">target_pattern=msg_data.get("matched_pattern")</span>
+)</code></pre>
+                </div>
+            </div>
+
+            <div class="code-comparison" style="margin-top: 20px;">
+                <div class="code-panel old">
+                    <h3>Line 506 (OLD)</h3>
+                    <pre><code>msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-remove">target_pattern="checked"</span>
+)</code></pre>
+                </div>
+                <div class="code-panel new">
+                    <h3>Line 506 (NEW)</h3>
+                    <pre><code><span class="highlight-add">checked_pattern = msg_data.get(
+    "checked_pattern",
+    self.monitor_settings.patterns[0]
+    if self.monitor_settings.patterns
+    else None
+)</span>
+msg.mark_processed(
+    is_reacted=False,
+    <span class="highlight-add">target_pattern=checked_pattern</span>
+)</code></pre>
+                </div>
+            </div>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-step3" placeholder="Add your comments about Step 3..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="code-section">
+        <div class="section-header">
+            <span class="badge">RESULT</span>
+            Expected Outcome
+        </div>
+        <div style="padding: 20px;">
+            <table>
+                <tr><th></th><th>message_id</th><th>text</th><th>target_pattern</th></tr>
+                <tr>
+                    <td><strong>Before</strong></td>
+                    <td>7643842788513042144</td>
+                    <td>出明天车位</td>
+                    <td><code>matched</code></td>
+                </tr>
+                <tr>
+                    <td><strong>After</strong></td>
+                    <td>7643842788513042144</td>
+                    <td>出明天车位</td>
+                    <td><code>re:.*(出|整出).*(车位|停车位).*</code></td>
+                </tr>
+            </table>
+        </div>
+        <div class="comment-section">
+            <div class="comment-input-wrapper">
+                <textarea class="comment-input" id="comment-outcome" placeholder="Add your comments about the expected outcome..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary-section">
+        <h2>Gather All Comments</h2>
+        <p style="margin-bottom: 15px;">Review your comments above and click "Generate Output" to create a markdown summary.</p>
+
+        <div class="output-header">
+            <button class="btn btn-primary" onclick="generateOutput()">
+                <svg fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0zM4.5 7.5a.5.5 0 0 0 0 1h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 1 0-.708.708L10.293 7.5H4.5z"/></svg>
+                Generate Output
+            </button>
+        </div>
+
+        <div class="output-container">
+            <button class="copy-btn-corner" onclick="copyOutput()" title="Copy to clipboard">
+                <svg fill="currentColor" viewBox="0 0 16 16"><path d="M5.75 4.75h-1.5a1 1 0 00-1 1v6.5a1 1 0 001 1h6.5a1 1 0 001-1v-1.5h1.5a1 1 0 001-1v-6.5a1 1 0 00-1-1h-6.5a1 1 0 00-1 1v1.5zm1.5 0v-1.5h6.5v6.5h-1.5v-4.5a1 1 0 00-1-1h-4.5zm-3 1.5h6.5v6.5h-6.5v-6.5z"/></svg>
+                Copy
+            </button>
+            <textarea id="final-output" placeholder="Generated markdown will appear here..."></textarea>
+        </div>
+    </div>
+
+    <script>
+        function generateOutput() {
+            const sections = [
+                { id: 'comment-issue', title: 'Issue Description' },
+                { id: 'comment-root-cause', title: 'Root Cause Analysis' },
+                { id: 'comment-step1', title: 'Step 1: Add Method to PatternMatcher' },
+                { id: 'comment-step2', title: 'Step 2: Update Message Processing' },
+                { id: 'comment-step3', title: 'Step 3: Update mark_processed Calls' },
+                { id: 'comment-outcome', title: 'Expected Outcome' }
+            ];
+
+            let markdown = '# Review: Fix target_pattern Bug\n\n';
+            markdown += '**Review Date:** ' + new Date().toISOString().split('T')[0] + '\n\n';
+            markdown += '**Plan:** Store actual regex pattern in target_pattern column instead of hardcoded "matched"/"checked" strings.\n\n';
+            markdown += '---\n\n';
+
+            let hasComments = false;
+            sections.forEach(section => {
+                const element = document.getElementById(section.id);
+                const comment = element.value.trim();
+
+                if (comment) {
+                    hasComments = true;
+                    markdown += '## ' + section.title + '\n\n';
+                    markdown += comment + '\n\n';
+                }
+            });
+
+            if (!hasComments) {
+                markdown += '*No comments provided. Please review the plan and add your feedback above.*\n\n';
+            }
+
+            markdown += '---\n\n';
+            markdown += '**Action Required:** Please review these comments and provide feedback or approve for implementation.\n';
+
+            document.getElementById('final-output').value = markdown;
+        }
+
+        function copyOutput() {
+            const output = document.getElementById('final-output');
+            if (!output.value) {
+                generateOutput();
+            }
+            output.select();
+            output.setSelectionRange(0, 99999);
+
+            navigator.clipboard.writeText(output.value).then(function() {
+                const btn = document.querySelector('.copy-btn-corner');
+                const originalHTML = btn.innerHTML;
+                btn.innerHTML = '<svg fill="currentColor" viewBox="0 0 16 16"><path d="M13.78 4.22a.75.75 0 010 1.06l-7.25 7.25a.75.75 0 01-1.06 0L2.22 9.28a.75.75 0 011.06-1.06L6 10.94l6.72-6.72a.75.75 0 011.06 0z"/></svg> Copied!';
+                setTimeout(function() {
+                    btn.innerHTML = originalHTML;
+                }, 2000);
+            }).catch(function(err) {
+                alert('Failed to copy. Please copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>

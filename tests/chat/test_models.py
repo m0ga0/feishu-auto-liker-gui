@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from parkbot.chat.models import FeishuMessage
+from parkbot.utils.datetime_utils import utcnow
 
 
 class TestFeishuMessage:
@@ -23,7 +24,7 @@ class TestFeishuMessage:
 
     def test_create_message_with_all_fields(self):
         """Test creating message with all fields"""
-        now = datetime.utcnow()
+        now = utcnow()
         msg = FeishuMessage(
             id="msg456",
             text="Test message",
@@ -82,7 +83,7 @@ class TestFeishuMessage:
         # Should be able to modify fields
         msg.is_reacted = True
         msg.target_pattern = "pattern"
-        msg.reacted_at = datetime.utcnow()
+        msg.reacted_at = utcnow()
 
         assert msg.is_reacted is True
         assert msg.target_pattern == "pattern"
@@ -92,11 +93,11 @@ class TestFeishuMessage:
         """Test that reacted_at is always updated on mark_processed"""
         msg = FeishuMessage(id="msg333", text="Update test")
 
-        before = datetime.utcnow()
+        before = utcnow()
         msg.mark_processed(is_reacted=False, target_pattern="test")
-        after = datetime.utcnow()
+        after = utcnow()
 
-        assert before <= msg.reacted_at <= after
+        assert before <= msg.reacted_at <= after  # ty: ignore[unsupported-operator]
 
     def test_multiple_mark_processed_calls(self):
         """Test multiple mark_processed calls update state correctly"""
@@ -114,7 +115,7 @@ class TestFeishuMessage:
 
         assert msg.is_reacted is True
         assert msg.target_pattern == "second"
-        assert msg.reacted_at > first_reacted_at
+        assert msg.reacted_at > first_reacted_at  # ty: ignore[unsupported-operator]
 
     def test_message_equality_by_value(self):
         """Test that messages with same values are equal"""
@@ -138,7 +139,7 @@ class TestFeishuMessage:
         )
         msg.mark_processed(is_reacted=True, target_pattern="test")
 
-        json_str = msg.json()
+        json_str = msg.json()  # ty: ignore[deprecated]
         assert "msg777" in json_str
         assert "JSON test" in json_str
         assert "test" in json_str
@@ -148,7 +149,7 @@ class TestFeishuMessage:
         msg = FeishuMessage(id="msg888", text="Dict test")
         msg.mark_processed(is_reacted=False, target_pattern="pattern")
 
-        d = msg.dict()
+        d = msg.dict()  # ty: ignore[deprecated]
         assert d["id"] == "msg888"
         assert d["text"] == "Dict test"
         assert d["is_reacted"] is False

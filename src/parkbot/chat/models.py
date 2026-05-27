@@ -3,6 +3,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from parkbot.utils.datetime_utils import utcnow
+
 
 class FeishuMessage(BaseModel):
     """
@@ -40,7 +42,7 @@ class FeishuMessage(BaseModel):
     )
 
     # Timestamp
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     reacted_at: Optional[datetime] = Field(default=None)
 
     class Config:
@@ -65,4 +67,4 @@ class FeishuMessage(BaseModel):
         """
         self.is_reacted = is_reacted
         self.target_pattern = target_pattern
-        self.reacted_at = datetime.utcnow()
+        self.reacted_at = utcnow()

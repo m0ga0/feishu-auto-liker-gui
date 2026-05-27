@@ -3,6 +3,7 @@ from sqlmodel import SQLModel, Field
 from datetime import datetime
 from typing import Optional
 from parkbot.chat.models import FeishuMessage
+from parkbot.utils.datetime_utils import utcnow
 
 
 class SqliteFeishuMessage(SQLModel, table=True):
@@ -23,7 +24,7 @@ class SqliteFeishuMessage(SQLModel, table=True):
     target_pattern: Optional[str] = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utcnow)
     reacted_at: Optional[datetime] = None
 
     def to_domain(self) -> FeishuMessage:

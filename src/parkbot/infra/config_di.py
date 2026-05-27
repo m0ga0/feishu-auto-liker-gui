@@ -1,3 +1,4 @@
+from sqlalchemy import Engine
 from sqlmodel import create_engine, SQLModel
 from ..config.dao import AppSettingsRepository
 from ..dao_impl.config.monitor_settings_impl import (
@@ -16,18 +17,25 @@ MONITOR_DEFAULT_SETTINGS_PATH = "monitor_default_settings.yaml"
 SYS_INTERNAL_SETTINGS_PATH = "sys_internal_settings.yaml"
 # sqlite db file name
 DB_PATH = "app.db"
-# sqlite db file name for messages
-MESSAGES_DB_PATH = "messages.db"
 
 _repo: AppSettingsRepository | None = None
 _message_repo: IFeishuMessageRepository | None = None
+_engine: Engine | None = None
+
+
+def _get_engine() -> Engine:
+    """Get or create the shared database engine."""
+    global _engine
+    if _engine is None:
+        _engine = create_engine(f"sqlite:///{DB_PATH}")
+    return _engine
 
 
 def get_settings_repository() -> AppSettingsRepository:
     global _repo
     if _repo:
         return _repo
-    engine = create_engine(f"sqlite:///{DB_PATH}")
+    engine = _get_engine()
     sqlite_monitor_repo = SqliteMonitorSettingsRepository(engine)
     yaml_monitor_repo = YamlMonitorSettingsRepository(MONITOR_DEFAULT_SETTINGS_PATH)
     monitor_repo = CompositeMonitorSettingsRepository(
@@ -44,11 +52,10 @@ def get_message_repository() -> IFeishuMessageRepository:
     if _message_repo:
         return _message_repo
 
-    # Create separate engine for messages database
-    engine = create_engine(f"sqlite:///{MESSAGES_DB_PATH}")
+    # Use the shared engine
+    engine = _get_engine()
 
-    # Create tables automatically
-
+    # Create tables automatically (only creates if not exist)
     SQLModel.metadata.create_all(engine)
 
     _message_repo = SqliteFeishuMessageRepository(engine)
