@@ -1,6 +1,6 @@
 [project]
 name = "parkbot"
-version = "0.1.0"
+dynamic = ["version"]
 description = "飞书车位助手"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -16,8 +16,11 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["flit_core"]
-build-backend = "flit_core.buildapi"
+#requires = ["flit_core"]
+#build-backend = "flit_core.buildapi"
+# below we switch to use hatching
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.optional-dependencies]
 # use --extra dev to install while uv sync
@@ -31,6 +34,9 @@ dev = [
     "ty>=0.0.32",
     "isort",
 ]
+
+[tool.hatch.version]
+path = "src/parkbot/__init__.py"
 
 [tool.hatch.envs.default]
 # Tells Hatch to include this extra group by default
@@ -89,12 +95,3 @@ fix = true
 venvPath = "."
 venv = ".venv"
 extraPaths=["src"]
-
-[dependency-groups]
-dev = [
-    "anyio>=4.13.0",
-    "pytest>=9.0.3",
-    "pytest-asyncio>=1.3.0",
-    "pytest-cov>=7.1.0",
-    "pytest-timeout>=2.4.0",
-]
